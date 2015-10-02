@@ -1,0 +1,33 @@
+(f*g)t = ft*g+f*gt
+(f/g)t = ft/g-f*gt/g/g
+(f*g)xy = fxy*g+fx*gy+fy*gx+f*gxy
+(f/g)xy = fxy/g-fy*gx/gg-fx*gy/gg-f*gxy/g/g+2f*gx*gy/ggg
+
+
+
+Q = abc cxi
+    def cyi
+    ghi 1
+
+R = pxi
+    pyi
+    j
+
+P = k
+    l
+    m
+
+ QxR * P
+|QxR| |P|
+
+(a,b,c) 1
+(d,e,f) 1
+(g,h,i) j
+
+[
+(d,e,f)jk+(g,h,i)k
++
+(a*cxi+b*cyi+c)*j*l+(g,h,i)l
++
+m*(a*cxi+b*cyi+c),d,e,f)m
+]^2

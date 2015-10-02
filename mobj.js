@@ -78,6 +78,47 @@ MObj.prototype = {
       })
     })
     return out;
+  },
+  sin: function(){
+    return this.func(
+      Math.sin,
+      Math.cos,
+      function(x){return -Math.sin(x)}
+    )
+  },
+  cos: function(){
+    return this.func(
+      Math.cos,
+      function(x){return -Math.sin(x)},
+      function(x){return -Math.cos(x)}
+    )
+  },
+  exp: function(){
+    return this.func(Math.exp,Math.exp,Math.exp);
+  },
+  sqrt: function(){
+    return this.pow(0.5);
+  },
+  pow: function(v){
+    return this.func(
+      function(x){return Math.pow(x,v)},
+      function(x){return v*Math.pow(x,v-1)},
+      function(x){return v*(v-1)*Math.pow(x,v-2)}
+    )
+  },
+  func:function(f,df,ddf){
+    var fval=f(this.value);
+    var dfval=df(this.value);
+    var ddfval=ddf(this.value);
+    var out=new MObj(fval);
+    for(var i in this.d){
+      out.d[i]=this.d[i]*dfval;
+    }
+    for(var i in this.d)for(var j in this.d){
+      var dd=this.getDD(i,j)*dfval+this.getD(i)*this.getD(j)*ddfval;
+      out.setDD(i,j,dd);
+    }
+    return out;
   }
 }
 MObj.index=0;
@@ -129,25 +170,22 @@ MObj.solveMatrix=function(matrix,val){
   return out;
 }
 
-module.exports=MObj;
+try{
+  module.exports=MObj;
+}catch(e){}
 
 (function(){
   MObj=require('./mobj.js')
-  for(var i=0;i<1000;i++)MObj.var(3);
-  x=MObj.var(-3)
-  y=MObj.var(4)
+  x=MObj.var(1)
+  y=MObj.var(2)
   for(var i=0;i<10;i++){
-    xy=x.mult(y)
-    xx=x.mult(x)
-    yy=y.mult(y)
-    xz=x.addConst(-2);
-    xz2=xz.mult(xz)
-    xz4=xz2.mult(xz2)
-    exp = xx.scale(3).add(yy.scale(2)).add(xy.scale(4)).add(x.scale(-4)).add(xz4)
+    xx=x.add(y.scale(-1))
+    xx=xx.mult(xx)
+    yy=y.add(x)
+    yy=yy.mult(yy).mult(yy)
+    exp=xx.add(yy.sin()).sqrt()
     MObj.solveNext(exp,[x,y])
   }
   [x,y]
 })
 
-
-  

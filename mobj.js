@@ -22,25 +22,25 @@ MObj.prototype = {
     return new MObj(this.value, this.d, this.dd);
   },
   scale: function(scale){
-    var m = this.dup();
-    m.value*=scale;
-    for(var i in m.d)m.d[i]*=scale;
-    for(var i in m.dd)m.dd[i]*=scale;
-    return m;
-  },
-  addConst: function(v){
-    var m=this.dup();
-    m.value+=v;
-    return m;
+    var out = this.dup();
+    out.value*=scale;
+    for(var i in out.d)out.d[i]*=scale;
+    for(var i in out.dd)out.dd[i]*=scale;
+    return out;
   },
   add: function(m){
     var out=this.dup();
+    if(typeof(m)=='number'){
+      out.value+=m;
+      return out;
+    }
     out.value+=m.value;
     for(var i in m.d)out.d[i]=(out.d[i]||0)+m.d[i];
     for(var i in m.dd)out.dd[i]=(out.dd[i]||0)+m.dd[i];
     return out;
   },
   mult: function(m){
+    if(typeof(m)=='number')return this.scale(m);
     var out=new MObj(this.value*m.value);
     var self=this;
     MObj.dkeys(self,m,function(i){
@@ -60,6 +60,7 @@ MObj.prototype = {
     return out;
   },
   div:function(m){
+    if(typeof(m)=='number')return this.scale(1/m);
     var out=new MObj(this.value/m.value);
     var self=this;
     MObj.dkeys(self,m,function(i){
@@ -129,7 +130,48 @@ MObj.var=function(val){
   m.index=index;
   return m;
 }
-MObj.solveNext=function(exp,variables){
+MObj.const=function(val){
+  return new MObj(val);
+}
+MObj.solveMinimize=function(initials, expfunc, N, M, NC, NCMIN){
+  N=N||100;M=M||10
+  NC=NC||10;
+  NCMIN=NCMIN||2;
+  var nc=0;
+  var d=1;
+  var values=initials;
+  var vars=initials.map(function(x){return MObj.var(x)});
+  for(var n=0;n<N;n++){
+    var vars2 = vars.map(function(x){return MObj.var(x.value)})
+    var exp = expfunc(vars2);
+    MObj.solveNewton(exp,vars2);
+    var exp2 = expfunc(vars2);
+    if(exp2.value<exp.value){
+      console.log('newton')
+      vars=vars2;
+      if(nc++==NC)break;
+      continue;
+    }
+    for(var m=0;m<M;m++){
+      var vars2=vars.map(function(x){return MObj.var(x.value+d*(2*Math.random()-1))});
+      exp2=expfunc(vars2);
+      if(exp2.value<exp.value){
+        console.log('rand',m,d);
+        vars=vars2;
+        d*=1<<(M/2);
+        break;
+      }else{
+        d/=2;
+      }
+    }
+    if(m==M){
+      console.log('failed');
+      if(nc>=NCMIN)break;
+    }
+  }
+  return vars.map(function(v){return v.value});
+}
+MObj.solveNewton=function(exp,variables){
   var size=variables.length;
   var val=[];
   for(var i=0;i<size;i++){
@@ -175,17 +217,24 @@ try{
 }catch(e){}
 
 (function(){
-  MObj=require('./mobj.js')
-  x=MObj.var(1)
-  y=MObj.var(2)
-  for(var i=0;i<10;i++){
-    xx=x.add(y.scale(-1))
-    xx=xx.mult(xx)
-    yy=y.add(x)
-    yy=yy.mult(yy).mult(yy)
-    exp=xx.add(yy.sin()).sqrt()
-    MObj.solveNext(exp,[x,y])
-  }
-  [x,y]
-})
+  // MObj=require('./mobj.js')
+  var vals=[3,2,2,1,3];
+  out=MObj.solveMinimize(vals,function(vars){
+    var x=vars[0],y=vars[1],z=vars[2],u=vars[3],v=vars[4];
+    x=x.add(0.6);
+    y=y.add(0.3);
+    z=z.add(-0.5);
+    u=u.add(0.2);
+    v=v.add(-0.4);
+    xx=x.mult(x).scale(0.1);
+    yy=y.mult(y).scale(0.2);
+    zz=z.mult(z).scale(1.2);
+    uu=u.mult(u).scale(0.5);
+    vv=v.mult(v).scale(2.4);
+    sum=xx.add(yy).add(zz).add(uu).add(vv)
+    exp=sum.scale(-1).exp().scale(-1);
+    return exp;
+  },500)
+  console.log(out)
+})()
 

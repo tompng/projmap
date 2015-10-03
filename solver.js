@@ -1,17 +1,17 @@
-function MObj(value,d,dd){
+function Solver(value,d,dd){
   this.value = value;
   this.d = {}
   this.dd = {};
   for(var i in d)this.d[i]=d[i];
   for(var i in dd)this.dd[i]=dd[i];
 }
-MObj.dkeys=function(a,b,func){
+Solver.dkeys=function(a,b,func){
   var keys={};
   for(var i in a.d)keys[i]=true;
   for(var i in b.d)keys[i]=true;
   for(var i in keys)func(i);
 }
-MObj.prototype = {
+Solver.prototype = {
   setD: function(i,val){this.d[i]=val;},
   getD: function(i){return this.d[i]||0;},
   getDD: function(i,j){return this.dd[i<j?i+'_'+j:j+'_'+i]||0;},
@@ -19,7 +19,7 @@ MObj.prototype = {
     this.dd[i<j?i+'_'+j:j+'_'+i]=val;
   },
   dup: function(){
-    return new MObj(this.value, this.d, this.dd);
+    return new Solver(this.value, this.d, this.dd);
   },
   scale: function(scale){
     var out = this.dup();
@@ -41,13 +41,13 @@ MObj.prototype = {
   },
   mult: function(m){
     if(typeof(m)=='number')return this.scale(m);
-    var out=new MObj(this.value*m.value);
+    var out=new Solver(this.value*m.value);
     var self=this;
-    MObj.dkeys(self,m,function(i){
+    Solver.dkeys(self,m,function(i){
       out.d[i]=self.getD(i)*m.value+self.value*m.getD(i);
     })
-    MObj.dkeys(self,m,function(i){
-      MObj.dkeys(self,m,function(j){
+    Solver.dkeys(self,m,function(i){
+      Solver.dkeys(self,m,function(j){
         var dd=(
           +self.getDD(i,j)*m.value
           +self.getD(i)*m.getD(j)
@@ -61,13 +61,13 @@ MObj.prototype = {
   },
   div:function(m){
     if(typeof(m)=='number')return this.scale(1/m);
-    var out=new MObj(this.value/m.value);
+    var out=new Solver(this.value/m.value);
     var self=this;
-    MObj.dkeys(self,m,function(i){
+    Solver.dkeys(self,m,function(i){
       out.d[i]=self.getD(i)/m.value-self.value*m.getD(i)/m.value/m.value;
     })
-    MObj.dkeys(self,m,function(i){
-      MObj.dkeys(self,m,function(j){
+    Solver.dkeys(self,m,function(i){
+      Solver.dkeys(self,m,function(j){
         var dd=(
           +self.getDD(i,j)/m.value
           -self.getD(i)*m.getD(j)/m.value/m.value
@@ -111,7 +111,7 @@ MObj.prototype = {
     var fval=f(this.value);
     var dfval=df(this.value);
     var ddfval=ddf(this.value);
-    var out=new MObj(fval);
+    var out=new Solver(fval);
     for(var i in this.d){
       out.d[i]=this.d[i]*dfval;
     }
@@ -122,29 +122,32 @@ MObj.prototype = {
     return out;
   }
 }
-MObj.index=0;
-MObj.var=function(val){
-  var index=MObj.index++;
-  var m = new MObj(val||0);
+Solver.index=0;
+Solver.var=function(val){
+  var index=Solver.index++;
+  var m = new Solver(val||0);
   m.setD(index,1);
   m.index=index;
   return m;
 }
-MObj.const=function(val){
-  return new MObj(val);
+Solver.const=function(val){
+  return new Solver(val);
 }
-MObj.solveMinimize=function(initials, expfunc, N, M, NC, NCMIN){
+Solver.maximize=function(initials, expfunc, N, M, NC, NCMIN){
+  return Solver.minimize(initials, function(args){return expfunc(args).scale(-1)}, N, M, NC, NCMIN)
+}
+Solver.minimize=function(initials, expfunc, N, M, NC, NCMIN){
   N=N||100;M=M||10
   NC=NC||10;
   NCMIN=NCMIN||2;
   var nc=0;
   var d=1;
   var values=initials;
-  var vars=initials.map(function(x){return MObj.var(x)});
+  var vars=initials.map(function(x){return Solver.var(x)});
   for(var n=0;n<N;n++){
-    var vars2 = vars.map(function(x){return MObj.var(x.value)})
+    var vars2 = vars.map(function(x){return Solver.var(x.value)})
     var exp = expfunc(vars2);
-    MObj.solveNewton(exp,vars2);
+    Solver.solveNewton(exp,vars2);
     var exp2 = expfunc(vars2);
     if(exp2.value<exp.value){
       console.log('newton')
@@ -153,7 +156,7 @@ MObj.solveMinimize=function(initials, expfunc, N, M, NC, NCMIN){
       continue;
     }
     for(var m=0;m<M;m++){
-      var vars2=vars.map(function(x){return MObj.var(x.value+d*(2*Math.random()-1))});
+      var vars2=vars.map(function(x){return Solver.var(x.value+d*(2*Math.random()-1))});
       exp2=expfunc(vars2);
       if(exp2.value<exp.value){
         console.log('rand',m,d);
@@ -171,7 +174,7 @@ MObj.solveMinimize=function(initials, expfunc, N, M, NC, NCMIN){
   }
   return vars.map(function(v){return v.value});
 }
-MObj.solveNewton=function(exp,variables){
+Solver.solveNewton=function(exp,variables){
   var size=variables.length;
   var val=[];
   for(var i=0;i<size;i++){
@@ -185,12 +188,12 @@ MObj.solveNewton=function(exp,variables){
       matrix[i][j]=exp.getDD(variables[i].index,variables[j].index);
     }
   }
-  var d=MObj.solveMatrix(matrix, val);
+  var d=Solver.solveMatrix(matrix, val);
   for(var i=0;i<size;i++){
     variables[i].value -= d[i];
   }
 }
-MObj.solveMatrix=function(matrix,val){
+Solver.solveMatrix=function(matrix,val){
   var size=matrix.length;
   for(var i=0;i<size;i++){
     for(var j=i+1;j<size;j++){
@@ -213,13 +216,13 @@ MObj.solveMatrix=function(matrix,val){
 }
 
 try{
-  module.exports=MObj;
+  module.exports=Solver;
 }catch(e){}
 
 (function(){
-  // MObj=require('./mobj.js')
+  Solver=require('solver.js')
   var vals=[3,2,2,1,3];
-  out=MObj.solveMinimize(vals,function(vars){
+  out=Solver.maximize(vals,function(vars){
     var x=vars[0],y=vars[1],z=vars[2],u=vars[3],v=vars[4];
     x=x.add(0.6);
     y=y.add(0.3);
@@ -232,9 +235,8 @@ try{
     uu=u.mult(u).scale(0.5);
     vv=v.mult(v).scale(2.4);
     sum=xx.add(yy).add(zz).add(uu).add(vv)
-    exp=sum.scale(-1).exp().scale(-1);
+    exp=sum.scale(-1).exp();
     return exp;
   },500)
   console.log(out)
-})()
-
+})

@@ -39,6 +39,10 @@ Solver.prototype = {
     for(var i in m.dd)out.dd[i]=(out.dd[i]||0)+m.dd[i];
     return out;
   },
+  sub: function(m){
+    if(typeof(m)=='number')return this.add(-m);
+    return this.add(m.scale(-1));
+  },
   mult: function(m){
     if(typeof(m)=='number')return this.scale(m);
     var out=new Solver(this.value*m.value);
@@ -150,7 +154,7 @@ Solver.minimize=function(initials, expfunc, N, M, NC, NCMIN){
     Solver.solveNewton(exp,vars2);
     var exp2 = expfunc(vars2);
     if(exp2.value<exp.value){
-      console.log('newton')
+      console.log('newton', exp2.value)
       vars=vars2;
       if(nc++==NC)break;
       continue;
@@ -159,9 +163,9 @@ Solver.minimize=function(initials, expfunc, N, M, NC, NCMIN){
       var vars2=vars.map(function(x){return Solver.var(x.value+d*(2*Math.random()-1))});
       exp2=expfunc(vars2);
       if(exp2.value<exp.value){
-        console.log('rand',m,d);
+        console.log('rand',m,d, exp2.value);
         vars=vars2;
-        d*=1<<(M/2);
+        d*=4;
         break;
       }else{
         d/=2;
@@ -214,13 +218,21 @@ Solver.solveMatrix=function(matrix,val){
   }
   return out;
 }
+Solver.initials=function(n,r){
+  r=r||1;
+  var out=[];
+  for(var i=0;i<n;i++){
+    out[i]=r*(2*Math.random()-1)
+  }
+  return out;
+}
 
 try{
   module.exports=Solver;
 }catch(e){}
 
 (function(){
-  Solver=require('solver.js')
+  Solver=require('./solver.js')
   var vals=[3,2,2,1,3];
   out=Solver.maximize(vals,function(vars){
     var x=vars[0],y=vars[1],z=vars[2],u=vars[3],v=vars[4];

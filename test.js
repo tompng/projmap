@@ -7,7 +7,15 @@ for(var i=0;i<20;i++){
   var z=2+Math.random();
   points.push({x:x,y:y,z:z});
 }
+var PTH1=0.2
+var PTH2=0.3
+var CAMRA=0.1
+var CAMRB=0.3
+var CAMRC=0.5
 var cameraPos={x:0.64,y:0.6,z:0.48};
+cameraPos.x=Math.cos(PTH1)*Math.cos(PTH2);
+cameraPos.y=Math.sin(PTH1)*Math.cos(PTH2);
+cameraPos.z=Math.sin(PTH2);
 var data = points.map(function(p){
   var cameraL=1
   var cam={
@@ -15,21 +23,21 @@ var data = points.map(function(p){
     y:p.y-cameraPos.y,
     z:p.z-cameraPos.z
   }
-  // cam={
-  //   x:cam.x*Math.cos(0.2)+cam.y*Math.sin(0.2),
-  //   y:-cam.x*Math.sin(0.2)+cam.y*Math.cos(0.2),
-  //   z:cam.z
-  // }
-  // cam={
-  //   x:cam.x*Math.cos(0.3)+cam.z*Math.sin(0.3),
-  //   y:cam.y,
-  //   z:-cam.x*Math.sin(0.3)+cam.z*Math.cos(0.3)
-  // }
-  // cam={
-  //   x:cam.x,
-  //   y:cam.y*Math.cos(0.1)+cam.z*Math.sin(0.1),
-  //   z:-cam.y*Math.sin(0.1)+cam.z*Math.cos(0.1)
-  // }
+  cam={
+    x:cam.x*Math.cos(CAMRA)+cam.y*Math.sin(CAMRA),
+    y:-cam.x*Math.sin(CAMRA)+cam.y*Math.cos(CAMRA),
+    z:cam.z
+  }
+  cam={
+    x:cam.x*Math.cos(CAMRB)+cam.z*Math.sin(CAMRB),
+    y:cam.y,
+    z:-cam.x*Math.sin(CAMRB)+cam.z*Math.cos(CAMRB)
+  }
+  cam={
+    x:cam.x,
+    y:cam.y*Math.cos(CAMRC)+cam.z*Math.sin(CAMRC),
+    z:-cam.y*Math.sin(CAMRC)+cam.z*Math.cos(CAMRC)
+  }
   return {
     projector:{
       x:p.x/p.z*projectorL,
@@ -44,20 +52,38 @@ var data = points.map(function(p){
 
 
 console.log(data)
-var ini=[0,0];
-// ini=Solver.initials(13)
-var out=Solver.minimize(ini, function(vars){
-  var projL=Solver.const(2)
-  var cameraL=Solver.const(1);
-  var pth1=vars[0],pth2=vars[1]
+var ini=[0.2,0.31,0.1,0.1,0];
+var out=Solver.minimizeWithRandomStartpoint(5,0.5, function(vars){
+  var i=0;
+  var projL=Solver.const(2);
+  var camL=Solver.const(1);
+  var pth1=vars[i++],pth2=vars[i++];
   var P=[pth1.cos().mult(pth2.cos()),pth1.sin().mult(pth2.cos()),pth2.sin()]
-  // var P=[Solver.const(0.64),vars[0],vars[1]];
   var sum=Solver.const(0);
+  var camA=vars[i++];
+  var camB=vars[i++];
+  var camC=vars[i++];
   data.forEach(function(e){
-    var c=[e.camera.x,e.camera.y,cameraL];
-    var Q=[Solver.const(e.camera.x),Solver.const(e.camera.y),cameraL];
-    var R=[e.projector.x,e.projector.y,projL];
+    var c=[e.camera.x,e.camera.y,camL];
+    var Q=[Solver.const(e.camera.x),Solver.const(e.camera.y),camL];
 
+    Q=[
+      Q[0].mult(camA.cos()).add(Q[1].mult(camA.sin())),
+      Q[1].mult(camA.cos()).sub(Q[0].mult(camA.sin())),
+      Q[2]
+    ]
+    Q=[
+      Q[0].mult(camB.cos()).add(Q[2].mult(camB.sin())),
+      Q[1],
+      Q[2].mult(camB.cos()).sub(Q[0].mult(camB.sin()))
+    ]
+    Q=[
+      Q[0],
+      Q[1].mult(camC.cos()).add(Q[2].mult(camC.sin())),
+      Q[2].mult(camC.cos()).sub(Q[1].mult(camC.sin()))
+    ]
+
+    var R=[e.projector.x,e.projector.y,projL];
     var QxR=[
       Q[1].mult(R[2]).sub(Q[2].mult(R[1])),
       Q[2].mult(R[0]).sub(Q[0].mult(R[2])),
@@ -65,15 +91,19 @@ var out=Solver.minimize(ini, function(vars){
     ];
     var QxR_P=QxR[0].mult(P[0]).add(QxR[1].mult(P[1])).add(QxR[2].mult(P[2]));
     var QxR2=QxR[0].mult(QxR[0]).add(QxR[1].mult(QxR[1])).add(QxR[2].mult(QxR[2]));
-    var P2=P[0].mult(P[0]).add(P[1].mult(P[1])).add(P[2].mult(P[2]));
-    sum=sum.add(QxR_P.mult(QxR_P).div(QxR2).div(P2));
+    sum=sum.add(QxR_P.mult(QxR_P));
   })
-  var hoge=cameraL.mult(cameraL).add(projL.mult(projL)).add(1)
-  return sum.mult(hoge);
+  return sum;
 })
 
-
-
-var p=[Math.cos(out[0])*Math.cos(out[1]),Math.sin(out[0])*Math.cos(out[1]),Math.sin(out[1])]
+var i=0;
+var projL=2;
+var camL=1;
+var pth1=out[i++];
+var pth2=out[i++]
+camA=out[i++];
+camB=out[i++];
+camC=out[i++];
 console.log('aa');
-console.log(p);
+console.log(projL,camL,pth1,pth2,camA,camB,camC);
+

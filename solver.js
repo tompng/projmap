@@ -137,6 +137,24 @@ Solver.var=function(val){
 Solver.const=function(val){
   return new Solver(val);
 }
+Solver.minimizeWithRandomStartpoint=function(num,range,expfunc){
+  var initials=Solver.randomSearchMinimize(num,range,expfunc);
+  return Solver.minimize(initials,expfunc);
+}
+Solver.randomSearchMinimize=function(num,range,expfunc){
+  var mins=[],min=null;
+  for(var n=0;n<1000;n++){
+    var vars=[];
+    for(var i=0;i<num;i++)vars[i]=Solver.const(range*(2*Math.random()-1));
+    var exp=expfunc(vars);
+    if(min==null||exp.value<min){
+      mins=vars;
+      min=exp.value;
+      console.log('rsearch',min);
+    }
+  }
+  return mins.map(function(m){return m.value});
+}
 Solver.maximize=function(initials, expfunc, N, M, NC, NCMIN){
   return Solver.minimize(initials, function(args){return expfunc(args).scale(-1)}, N, M, NC, NCMIN)
 }
@@ -176,6 +194,7 @@ Solver.minimize=function(initials, expfunc, N, M, NC, NCMIN){
       if(nc>=NCMIN)break;
     }
   }
+  console.log(exp);
   return vars.map(function(v){return v.value});
 }
 Solver.solveNewton=function(exp,variables){

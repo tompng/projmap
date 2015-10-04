@@ -44,22 +44,18 @@ var data = points.map(function(p){
 
 
 console.log(data)
-var ini=[1,0,0,0,1,0,0,0,1,2,0.64,0.6001,0.48];
+var ini=[0,0];
 // ini=Solver.initials(13)
 var out=Solver.minimize(ini, function(vars){
-  var matrix=[[vars[0],vars[1],vars[2]],
-              [vars[3],vars[4],vars[5]],
-              [vars[6],vars[7],vars[8]]];
-  var projL=vars[9]
-  var P=[vars[10],vars[11],vars[12]];
+  var projL=Solver.const(2)
+  var cameraL=Solver.const(1);
+  var pth1=vars[0],pth2=vars[1]
+  var P=[pth1.cos().mult(pth2.cos()),pth1.sin().mult(pth2.cos()),pth2.sin()]
+  // var P=[Solver.const(0.64),vars[0],vars[1]];
   var sum=Solver.const(0);
   data.forEach(function(e){
-    var c=[e.camera.x,e.camera.y,1];
-    var Q=[
-      matrix[0][0].mult(c[0]).add(matrix[0][1].mult(c[1])).add(matrix[0][2].mult(c[2])),
-      matrix[1][0].mult(c[0]).add(matrix[1][1].mult(c[1])).add(matrix[1][2].mult(c[2])),
-      matrix[2][0].mult(c[0]).add(matrix[2][1].mult(c[1])).add(matrix[2][2].mult(c[2]))
-    ];
+    var c=[e.camera.x,e.camera.y,cameraL];
+    var Q=[Solver.const(e.camera.x),Solver.const(e.camera.y),cameraL];
     var R=[e.projector.x,e.projector.y,projL];
 
     var QxR=[
@@ -72,17 +68,12 @@ var out=Solver.minimize(ini, function(vars){
     var P2=P[0].mult(P[0]).add(P[1].mult(P[1])).add(P[2].mult(P[2]));
     sum=sum.add(QxR_P.mult(QxR_P).div(QxR2).div(P2));
   })
-  return sum;
+  var hoge=cameraL.mult(cameraL).add(projL.mult(projL)).add(1)
+  return sum.mult(hoge);
 })
 
 
 
-var matrix=[[out[0],out[1],out[2]],
-            [out[3],out[4],out[5]],
-            [out[6],out[7],out[8]]];
-var p=[out[10],out[11],out[12]];
-pr=Math.sqrt(p[0]*p[0]+p[1]*p[1]+p[2]*p[2]);
-p[0]/=pr;p[1]/=pr;p[2]/=pr;
-var projL=out[9];
+var p=[Math.cos(out[0])*Math.cos(out[1]),Math.sin(out[0])*Math.cos(out[1]),Math.sin(out[1])]
 console.log('aa');
-console.log(projL, p ,matrix)
+console.log(p);

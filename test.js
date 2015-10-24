@@ -105,5 +105,6 @@ camA=out[i++];
 camB=out[i++];
 camC=out[i++];
 console.log('aa');
+console.log(2, 1, 0.2, 0.3, -0.23599, -0.21176, -0.54032);
 console.log(projL,camL,pth1,pth2,camA,camB,camC);
 

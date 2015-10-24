@@ -1,17 +1,17 @@
-function Solver(value,d,dd){
+function Var(value,d,dd){
   this.value = value;
   this.d = {}
   this.dd = {};
   for(var i in d)this.d[i]=d[i];
   for(var i in dd)this.dd[i]=dd[i];
 }
-Solver.dkeys=function(a,b,func){
+Var.dkeys=function(a,b,func){
   var keys={};
   for(var i in a.d)keys[i]=true;
   for(var i in b.d)keys[i]=true;
   for(var i in keys)func(i);
 }
-Solver.prototype = {
+Var.prototype = {
   setD: function(i,val){this.d[i]=val;},
   getD: function(i){return this.d[i]||0;},
   getDD: function(i,j){return this.dd[i<j?i+'_'+j:j+'_'+i]||0;},
@@ -19,7 +19,7 @@ Solver.prototype = {
     this.dd[i<j?i+'_'+j:j+'_'+i]=val;
   },
   dup: function(){
-    return new Solver(this.value, this.d, this.dd);
+    return new Var(this.value, this.d, this.dd);
   },
   scale: function(scale){
     var out = this.dup();
@@ -45,13 +45,13 @@ Solver.prototype = {
   },
   mult: function(m){
     if(typeof(m)=='number')return this.scale(m);
-    var out=new Solver(this.value*m.value);
+    var out=new Var(this.value*m.value);
     var self=this;
-    Solver.dkeys(self,m,function(i){
+    Var.dkeys(self,m,function(i){
       out.d[i]=self.getD(i)*m.value+self.value*m.getD(i);
     })
-    Solver.dkeys(self,m,function(i){
-      Solver.dkeys(self,m,function(j){
+    Var.dkeys(self,m,function(i){
+      Var.dkeys(self,m,function(j){
         var dd=(
           +self.getDD(i,j)*m.value
           +self.getD(i)*m.getD(j)
@@ -65,13 +65,13 @@ Solver.prototype = {
   },
   div:function(m){
     if(typeof(m)=='number')return this.scale(1/m);
-    var out=new Solver(this.value/m.value);
+    var out=new Var(this.value/m.value);
     var self=this;
-    Solver.dkeys(self,m,function(i){
+    Var.dkeys(self,m,function(i){
       out.d[i]=self.getD(i)/m.value-self.value*m.getD(i)/m.value/m.value;
     })
-    Solver.dkeys(self,m,function(i){
-      Solver.dkeys(self,m,function(j){
+    Var.dkeys(self,m,function(i){
+      Var.dkeys(self,m,function(j){
         var dd=(
           +self.getDD(i,j)/m.value
           -self.getD(i)*m.getD(j)/m.value/m.value
@@ -115,7 +115,7 @@ Solver.prototype = {
     var fval=f(this.value);
     var dfval=df(this.value);
     var ddfval=ddf(this.value);
-    var out=new Solver(fval);
+    var out=new Var(fval);
     for(var i in this.d){
       out.d[i]=this.d[i]*dfval;
     }
@@ -126,16 +126,16 @@ Solver.prototype = {
     return out;
   }
 }
-Solver.index=0;
+var Solver={index:0}
 Solver.var=function(val){
   var index=Solver.index++;
-  var m = new Solver(val||0);
+  var m = new Var(val||0);
   m.setD(index,1);
   m.index=index;
   return m;
 }
 Solver.const=function(val){
-  return new Solver(val);
+  return new Var(val);
 }
 Solver.minimizeWithRandomStartpoint=function(num,range,expfunc){
   var initials=Solver.randomSearchMinimize(num,range,expfunc);
@@ -143,7 +143,7 @@ Solver.minimizeWithRandomStartpoint=function(num,range,expfunc){
 }
 Solver.randomSearchMinimize=function(num,range,expfunc){
   var mins=[],min=null;
-  for(var n=0;n<1000;n++){
+  for(var n=0;n<10000;n++){
     var vars=[];
     for(var i=0;i<num;i++)vars[i]=Solver.const(range*(2*Math.random()-1));
     var exp=expfunc(vars);
@@ -169,16 +169,48 @@ Solver.minimize=function(initials, expfunc, N, M, NC, NCMIN){
   for(var n=0;n<N;n++){
     var vars2 = vars.map(function(x){return Solver.var(x.value)})
     var exp = expfunc(vars2);
-    Solver.solveNewton(exp,vars2);
-    var exp2 = expfunc(vars2);
-    if(exp2.value<exp.value){
-      console.log('newton', exp2.value)
-      vars=vars2;
-      if(nc++==NC)break;
-      continue;
+    var newtonable=true;
+    for(var i in exp.d){
+      if(exp.getDD(i,i)<=0)newtonable=false;
     }
+    if(newtonable){
+      Solver.solveNewton(exp,vars2);
+      var exp2 = expfunc(vars2);
+      if(exp2.value<exp.value){
+        console.log('newton', exp2.value)
+        vars=vars2;
+        if(nc++==NC)break;
+        continue;
+      }else{
+        console.log('newton failed')
+      }
+    }
+    var exp = expfunc(vars);
+    var linearvar=Solver.var(0);
+    var linearexp=expfunc(hoge=vars.map(function(v){
+      return linearvar.mult(exp.getD(v.index)).add(v.value)
+    }));
+    if(linearexp.getDD(linearvar.index,linearvar.index)>0){
+      Solver.solveNewton(linearexp,[linearvar]);
+      var exp2=expfunc(vars.map(function(v){
+        return linearvar.mult(exp.getD(v.index)).add(v.value)
+      }));
+      if(exp2.value<exp.value){
+        console.log('newton1D',exp2.value);
+        vars=vars.map(function(v){
+          return Solver.var(v.value+linearvar.value*exp.getD(v.index))
+        })
+        continue;
+      }else{
+        console.log('newton1D faild');
+      }
+    }
+    var vec = Object.keys(exp.d).map(function(key){return -exp.getD(key)});
     for(var m=0;m<M;m++){
-      var vars2=vars.map(function(x){return Solver.var(x.value+d*(2*Math.random()-1))});
+      var vars2=[];
+      for(var i in vars){
+        vars2[i]=new Solver.var(vars[i].value+vec[i]*d);
+      }
       exp2=expfunc(vars2);
       if(exp2.value<exp.value){
         console.log('rand',m,d, exp2.value);
@@ -266,7 +298,7 @@ try{
     uu=u.mult(u).scale(0.5);
     vv=v.mult(v).scale(2.4);
     sum=xx.add(yy).add(zz).add(uu).add(vv)
-    exp=sum.scale(-1).exp();
+    exp=sum.scale(-1).exp().scale(-1);
     return exp;
   },500)
   console.log(out)

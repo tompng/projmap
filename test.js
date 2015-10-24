@@ -1,4 +1,4 @@
-Solver=require('./solver.js');
+Solver=require('./range_solver.js');
 points=[];
 var projectorL=2;
 for(var i=0;i<20;i++){
@@ -53,7 +53,7 @@ var data = points.map(function(p){
 
 console.log(data)
 var ini=[0.2,0.31,0.1,0.1,0];
-var out=Solver.minimizeWithRandomStartpoint(5,0.5, function(vars){
+var out=Solver.minimize([[0,0.5],[0,0.5],[-0.5,0],[-0.5,0],[-1,0]], func=function(vars){
   var i=0;
   var projL=Solver.const(2);
   var camL=Solver.const(1);
@@ -94,7 +94,7 @@ var out=Solver.minimizeWithRandomStartpoint(5,0.5, function(vars){
     sum=sum.add(QxR_P.mult(QxR_P));
   })
   return sum;
-})
+});
 
 var i=0;
 var projL=2;

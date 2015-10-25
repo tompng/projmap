@@ -91,7 +91,17 @@ Var.prototype = {
     val+=(valmin+valmax)/2;
     diff+=(valmax-valmin)/2;
     //(a.d・x)*(b.d・x)
-    diff+=adsum*bdsum;
+    for(var i in a.d){
+      for(var j in b.d){
+        var coef=a.d[i]*b.d[j];
+        if(i==j){
+          diff+=Math.abs(coef)/2;
+          val+=coef/2;
+        }else{
+          diff+=Math.abs(coef);
+        }
+      }
+    }
 
     out.min=val-diff;
     out.max=val+diff;
@@ -245,6 +255,7 @@ try{
     uu=u.mult(u).scale(0.5);
     vv=v.mult(v).scale(2.4);
     sum=xx.add(yy).add(zz).add(uu).add(vv)
+    // return x.add(y).add(z).add(u).sub(v).add(sum);
     return sum;
   });
   console.log(out)

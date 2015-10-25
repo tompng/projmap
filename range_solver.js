@@ -11,6 +11,31 @@ Var.prototype = {
   dup: function(){
     return new Var(this.min,this.max,this.d);
   },
+  recalcRange: function(){
+    var dsum=0;
+    for(var i in this.d)dsum+=Math.abs(this.d[i]);
+    var min=this.min-dsum;
+    var max=this.max-dsum;
+    var range={};
+    for(var i in this.d){
+      var d=this.d[i];
+      var r={};
+      if(d>0){
+        r.min=0;
+        r.max=Math.min(1,(max-min)/2/d);
+      }else{
+        r.max=1;
+        r.min=Math.max(0,1+(max-min)/2/d);
+      }
+      range[i]=r;
+    }
+    return range;
+  },
+  minrange: function(){
+    var dsum=0;
+    for(var i in this.d)dsum+=Math.abs(this.d[i]);
+    return {min:this.min-dsum,max:this.max-dsum};
+  },
   scale: function(scale){
     var out=this.dup();
     if(scale>0){
@@ -158,11 +183,7 @@ var Solver={
         vars[i]=v;
       }
       var y=func(vars);
-      var dsum=0;
-      for(var i in y.d){
-        dsum+=Math.abs(y.d[i]);
-      }
-      return {min: y.min-dsum,max:y.max+dsum};
+      return y.minrange();
     }
     var exp = evalrange(range);
     var hoges=[range];
@@ -182,9 +203,10 @@ var Solver={
       }).map(function(tmp){
         return tmp.range
       });
-      if(hoges.length>256){
+      console.log(hoges.length,tmps.length,tmps[0].exp.min,max);
+      if(hoges.length>65536){
         console.error('cannot');
-        hoges = hoges.slice(0,256);
+        hoges = hoges.slice(0,65536);
       }
     }
     return hoges[0].map(function(v){
@@ -199,19 +221,20 @@ try{
 }catch(e){}
 (function(){
   // Solver=require('./range_solver.js')
-  out=Solver.minimize([[-1,1],[-1,1],[-1,1],[-1,1],[-1,1]],function(vars){
+  out=Solver.minimize([[-1,1],[-1,1],[-1,1],[-1,1]],function(vars){
     var x=vars[0],y=vars[1],z=vars[2],u=vars[3],v=vars[4];
     x=x.add(0.6);
     y=y.add(0.3);
     z=z.add(-0.5);
     u=u.add(0.2);
-    v=v.add(-0.4);
+    // v=v.add(-0.4);
     xx=x.mult(x).scale(0.1);
     yy=y.mult(y).scale(0.2);
     zz=z.mult(z).scale(1.2);
     uu=u.mult(u).scale(0.5);
-    vv=v.mult(v).scale(2.4);
-    sum=xx.add(yy).add(zz).add(uu).add(vv)
+    // vv=v.mult(v).scale(2.4);
+    sum=xx.add(yy).add(zz).add(uu)//.add(vv)
+    // sum = x.scale(2).add(y).add(z).add(u).add(v);
     return sum;
   });
   console.log(out)

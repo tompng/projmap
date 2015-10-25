@@ -1,24 +1,37 @@
-function Var(min,max){
+function Var(min,max,d){
   this.min = min;
   this.max = max;
+  this.d = {};
+  for(var i in d)this.d[i]=d[i];
 }
 Var.prototype = {
+  addD: function(i,v){
+    this.d[i]=(this.d[i]||0)+v;
+  },
   dup: function(){
-    return new Var(this.min,this.max);
+    return new Var(this.min,this.max,this.d);
   },
   scale: function(scale){
+    var out=this.dup();
     if(scale>0){
-      return new Var(this.min*scale,this.max*scale);
+      out.min=this.min*scale;
+      out.max=this.max*scale;
     }else{
-      return new Var(this.max*scale,this.min*scale);
+      out.min=this.max*scale;
+      out.max=this.min*scale;
     }
+    for(var i in out.d)out.d[i]*=scale;
+    return out;
   },
   add: function(m){
+    var out=this.dup();
     if(typeof(m)=='number'){
-      return new Var(this.min+m,this.max+m);
+      out.min+=m;out.max+=m;
     }else{
-      return new Var(this.min+m.min,this.max+m.max);
+      out.min+=m.min;out.max+=m.max;
+      for(i in m.d)out.addD(m.d[i])
     }
+    return out;
   },
   sub: function(m){
     if(typeof(m)=='number')return this.add(-m);
@@ -26,56 +39,78 @@ Var.prototype = {
   },
   mult: function(m){
     if(typeof(m)=='number')return this.scale(m);
-    var vals=[this.min*m.min,this.max*m.max,this.min*m.min,this.max*m.max,this.min*m.max,this.max*m.min];
-    return new Var(
-      Math.min.apply(null,vals),
-      Math.max.apply(null,vals)
-    )
+    var a=this,b=m;
+    var aval=(a.min+a.max)/2,adif=(a.max-a.min)/2;
+    var bval=(b.min+b.max)/2,bdif=(b.max-b.min)/2;
+    //* (a.val+a.d・x+a.dif)(b.val+b.d・x+b.dif)
+    var out=new Var(0,0);
+    var val=0;
+    var diff=0;
+    //(b.val*a.d+a.val*b.d)・x
+    for(var i in a.d)out.addD(i,a.d[i]*bval);
+    for(var i in b.d)out.addD(i,b.d[i]*aval);
+
+    var admax=0,bdmax=0,adsum,bdsum;
+    for(var i in a.d){
+      adsum+=Math.abs(a.d[i]);
+      admax=Math.max(admax,Math.abs(a.d[i]));
+    }
+    for(var i in b.d){
+      bdsum+=Math.abs(b.d[i]);
+      bdmax=Math.max(bdmax,Math.abs(b.d[i]));
+    }
+    //(a.d・x)*b.dif+(b.d・x)*a.dif
+    diff+=bdif*admax+adif*bdmax;
+    //(a.val+a.dif)*(b.val+b.dif)
+    var vals=[a.min*b.min,a.max*b.max,a.min*b.max,a.max*b.min];
+    var valmin=Math.min.apply(null,vals);
+    var valmax=Math.max.apply(null,vals);
+    val+=(valmin+valmax)/2;
+    diff+=(valmax-valmin)/2;
+    //(a.d・x)*(b.d・x)
+    diff+=adsum*bdsum;
+
+    out.min=val-diff;
+    out.max=val+diff;
+    return out;
   },
   sin: function(){
-    var l=this.max-this.min;
+    var dsum=0;
+    for(var i in this.d)dsum+=Math.abs(this.d[i]);
+    var min=this.min-dsum,max=this.max+dsum;
+    var l=max-min;
     if(l>2*Math.PI)return new Var(-1,1);
-    var i1=Math.floor((this.min-Math.PI/2)/Math.PI);
-    var i2=Math.floor((this.max-Math.PI/2)/Math.PI);
-    var vals=[Math.sin(this.min),Math.sin(this.max)];
-    if(i1==i2){
-      vals.sort();
-    }else{
-      vals.push(Math.sin(i2*Math.PI+Math.PI/2));
-      vals.sort();
+    var i1=Math.floor(this.min/Math.PI/2);
+    var i2=Math.ceil(this.max/Math.PI/2);
+    var minval=Math.sin(min),maxval=Math.sin(max);
+    if(maxval==minval)return new Var(Math.sin(minval),Math.sin(maxval));
+    var ygrad=(maxval-minval)/(max-min);
+    var yconst=(minval*max-maxval*min)/(max-min);
+    sin(x)-yconst-ygrad*x;
+    cos(x)=ygrad;
+    var ac=Math.acos(ygrad);
+    var acvals=[];
+    for(var i=i1;i<=i2;i++){
+      var acplus=i*2*Math.PI+ac;
+      var acminus=i*2*Math.PI-ac;
+      if(min<acplus&&acplus<max)sval+=acplus;
+      if(min<acminus&&acminus<max)sval+=acminus;
     }
-    return new Var(vals[0],vals[vals.length-1]);
+    var difmax=0,difmin=0;
+    acvals.forEach(function(x){
+      var val=Math.sin(x)-yconst-ygrad*x;
+      difmax=Math.max(difmax,val);
+      difmin=Math.min(difmin,val);
+    });
+    // yconst+ygrad*x+(difmax~difmin)
+    var out=this.mult(ygrad).add(yconst);
+    out.min+=difmin;
+    out.max+=difmax;
+    return out;
   },
   cos: function(){
-    var l=this.max-this.min;
-    if(l>2*Math.PI)return new Var(-1,1);
-    var i1=Math.floor(this.min/Math.PI);
-    var i2=Math.floor(this.max/Math.PI);
-    var vals=[Math.cos(this.min),Math.cos(this.max)];
-    if(i1==i2){
-      vals.sort();
-    }else{
-      vals.push(Math.cos(i2*Math.PI));
-      vals.sort();
-    }
-    return new Var(vals[0],vals[vals.length-1]);
-  },
-  exp: function(){
-    return new Var(Math.exp(this.min),Math.exp(this.max));
-  },
-  pow: function(n){
-    if(n%2==1){
-      return new Var(Math.pow(this.min,n),Math.pow(this.max,n));
-    }else{
-      if(this.min<0&&this.max>0){
-        return new Var(0,Math.pow(Math.max(-this.min,this.max),n));
-      }else{
-        var a=Math.abs(this.min);
-        var b=Math.abs(this.max);
-        return new Var(Math.pow(a<b?a:b,n),Math.pow(a<b?b:a,n));
-      }
-    }
-  },
+    return this.add(Math.PI/2).sin();
+  }
 }
 var Solver={
   const: function(val){return new Var(val,val);},
@@ -88,9 +123,9 @@ var Solver={
         var min=range[j].min,max=range[j].max;
         var c=(min+max)/2;
         if((i>>j)&1){
-          r.push(new Var(min,c));
+          r.push({min:min,max:c});
         }else{
-          r.push(new Var(c,max));
+          r.push({min:c,max:max});
         }
       }
       outs.push(r);
@@ -99,14 +134,31 @@ var Solver={
     return outs;
   },
   minimize: function(range,func){
-    var range=range.map(function(a){return new Var(a[0],a[1])});
-    var exp = func(range);
+    if(range[0].length)range=range.map(function(a){return {min:a[0],max:a[1]}});
+    var evalrange=function(range){
+      var vars=[];
+      for(var i=0;i<range.length;i++){
+        var r=range[i];
+        var av=(r.min+r.max)/2;
+        var dif=(r.max-r.min)/2;
+        var v=new Var(av,av);
+        v.addD(i,dif);
+        vars[i]=v;
+      }
+      var y=func(vars);
+      var dsum=0;
+      for(var i in y.d){
+        dsum+=Math.abs(y.d[i]);
+      }
+      return {min: y.min-dsum,max:y.max+dsum};
+    }
+    var exp = evalrange(range);
     var hoges=[range];
     for(var i=0;i<10;i++){
       var tmps=[];
       hoges.forEach(function(range){
         Solver.split(range, function(subrange){
-          tmps.push({range:subrange,exp:func(subrange)})
+          tmps.push({range:subrange,exp:evalrange(subrange)})
         })
       })
       tmps.sort(function(a,b){
@@ -141,15 +193,14 @@ try{
     z=z.add(-0.5);
     u=u.add(0.2);
     v=v.add(-0.4);
-    xx=x.pow(2).scale(0.1);
-    yy=y.pow(2).scale(0.2);
-    zz=z.pow(2).scale(1.2);
-    uu=u.pow(2).scale(0.5);
-    vv=v.pow(2).scale(2.4);
+    xx=x.mult(x).scale(0.1);
+    yy=y.mult(y).scale(0.2);
+    zz=z.mult(z).scale(1.2);
+    uu=u.mult(u).scale(0.5);
+    vv=v.mult(v).scale(2.4);
     sum=xx.add(yy).add(zz).add(uu).add(vv)
-    exp=sum.scale(-1).exp().scale(-1);
+    exp=sum;
     return exp;
   });
   console.log(out)
-
-})
+})()

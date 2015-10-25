@@ -53,7 +53,7 @@ var data = points.map(function(p){
 
 console.log(data)
 var ini=[0.2,0.31,0.1,0.1,0];
-var out=Solver.minimize([[0,0.5],[0,0.5],[-0.5,0],[-0.5,0],[-1,0]], func=function(vars){
+var out=Solver.minimize([[0.15,0.25],[0.25,0.35],[-0.25,-0.15],[-0.25,-0.15],[-0.6,-0.5]], func=function(vars){
   var i=0;
   var projL=Solver.const(2);
   var camL=Solver.const(1);

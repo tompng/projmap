@@ -116,7 +116,7 @@ Var.prototype = {
     var i1=Math.floor(this.min/Math.PI/2);
     var i2=Math.ceil(this.max/Math.PI/2);
     var minval=Math.sin(min),maxval=Math.sin(max);
-    if(maxval==minval)return new Var(Math.sin(minval),Math.sin(maxval));
+    if(maxval==minval)return new Var(minval,maxval);
     var ygrad=(maxval-minval)/(max-min);
     var yconst=(minval*max-maxval*min)/(max-min);
     // sin(x)-yconst-ygrad*x;
@@ -219,13 +219,14 @@ var Solver={
       tmps.sort(function(a,b){
         return a.exp.max<b.exp.max?-1:1
       })
-      var max=tmps[0].exp.max;;
+      var max=tmps[0].exp.max;
       hoges = tmps.filter(function(tmp){
         return tmp.exp.min<=max
       }).map(function(tmp){
         return tmp.range
       });
-      console.log(hoges.length,tmps.length,tmps[0].exp.min,max);
+      console.log(hoges.length,tmps.length,tmps[0].exp);
+      console.log(hoges[0]);
       if(hoges.length>128){
         hoges = hoges.slice(0,128);
       }
@@ -254,7 +255,7 @@ try{
     zz=z.mult(z).scale(1.2);
     uu=u.mult(u).scale(0.5);
     vv=v.mult(v).scale(2.4);
-    sum=xx.add(yy).add(zz).add(uu).add(vv)
+    sum=xx.add(yy).add(zz).add(uu).add(vv).cos().scale(-1)
     // return x.add(y).add(z).add(u).sub(v).add(sum);
     return sum;
   });

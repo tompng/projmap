@@ -29,7 +29,7 @@ Var.prototype = {
       out.min+=m;out.max+=m;
     }else{
       out.min+=m.min;out.max+=m.max;
-      for(i in m.d)out.addD(m.d[i])
+      for(i in m.d)out.addD(i,m.d[i])
     }
     return out;
   },
@@ -50,7 +50,7 @@ Var.prototype = {
     for(var i in a.d)out.addD(i,a.d[i]*bval);
     for(var i in b.d)out.addD(i,b.d[i]*aval);
 
-    var admax=0,bdmax=0,adsum,bdsum;
+    var admax=0,bdmax=0,adsum=0,bdsum=0;
     for(var i in a.d){
       adsum+=Math.abs(a.d[i]);
       admax=Math.max(admax,Math.abs(a.d[i]));
@@ -86,15 +86,15 @@ Var.prototype = {
     if(maxval==minval)return new Var(Math.sin(minval),Math.sin(maxval));
     var ygrad=(maxval-minval)/(max-min);
     var yconst=(minval*max-maxval*min)/(max-min);
-    sin(x)-yconst-ygrad*x;
-    cos(x)=ygrad;
+    // sin(x)-yconst-ygrad*x;
+    // cos(x)=ygrad;
     var ac=Math.acos(ygrad);
     var acvals=[];
     for(var i=i1;i<=i2;i++){
       var acplus=i*2*Math.PI+ac;
       var acminus=i*2*Math.PI-ac;
-      if(min<acplus&&acplus<max)sval+=acplus;
-      if(min<acminus&&acminus<max)sval+=acminus;
+      if(min<acplus&&acplus<max)acvals.push(acplus);
+      if(min<acminus&&acminus<max)acvals.push(acminus);
     }
     var difmax=0,difmin=0;
     acvals.forEach(function(x){
@@ -113,6 +113,18 @@ Var.prototype = {
   }
 }
 var Solver={
+  var: function(name,min,max){
+    if(arguments.length==1){
+      min=-1;max=1;
+    }else if(arguments.length==2){
+      max=min;
+      min=-max;
+    }
+    var av=(min+max)/2;
+    var v=new Var(av,av);
+    v.addD(name,(max-min)/2);
+    return v;
+  },
   const: function(val){return new Var(val,val);},
   split: function(range,f){
     var size=1<<range.length;
@@ -154,7 +166,7 @@ var Solver={
     }
     var exp = evalrange(range);
     var hoges=[range];
-    for(var i=0;i<10;i++){
+    for(var i=0;i<20;i++){
       var tmps=[];
       hoges.forEach(function(range){
         Solver.split(range, function(subrange){
@@ -170,9 +182,9 @@ var Solver={
       }).map(function(tmp){
         return tmp.range
       });
-      console.log(hoges.length, tmps[0].exp.min,max);
-      if(hoges.length>2048){
-        hoges = hoges.slice(0,2048);
+      if(hoges.length>256){
+        console.error('cannot');
+        hoges = hoges.slice(0,256);
       }
     }
     return hoges[0].map(function(v){
@@ -182,10 +194,11 @@ var Solver={
 }
 
 try{
+  Solver.Var=Var;
   module.exports=Solver;
 }catch(e){}
 (function(){
-  // Solver=require('./solver.js')
+  // Solver=require('./range_solver.js')
   out=Solver.minimize([[-1,1],[-1,1],[-1,1],[-1,1],[-1,1]],function(vars){
     var x=vars[0],y=vars[1],z=vars[2],u=vars[3],v=vars[4];
     x=x.add(0.6);
@@ -199,8 +212,7 @@ try{
     uu=u.mult(u).scale(0.5);
     vv=v.mult(v).scale(2.4);
     sum=xx.add(yy).add(zz).add(uu).add(vv)
-    exp=sum;
-    return exp;
+    return sum;
   });
   console.log(out)
 })()

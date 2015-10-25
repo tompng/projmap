@@ -19,12 +19,10 @@ Var.prototype = {
     var range={};
     for(var i in this.d){
       var d=this.d[i];
-      var r={};
+      var r={min:0,max:1};
       if(d>0){
-        r.min=0;
         r.max=Math.min(1,(max-min)/2/d);
-      }else{
-        r.max=1;
+      }else if(d<0){
         r.min=Math.max(0,1+(max-min)/2/d);
       }
       range[i]=r;
@@ -183,7 +181,21 @@ var Solver={
         vars[i]=v;
       }
       var y=func(vars);
-      return y.minrange();
+      var rclip=y.recalcRange();
+      var range2=[];
+      for(var i=0;i<range.length;i++){
+        var r=range[i];
+        var rc=rclip[i];
+        if(rc){
+          range2[i]={
+            min:r.min+(r.max-r.min)*rc.min,
+            max:r.min+(r.max-r.min)*rc.max
+          }
+        }else{
+          range2[i]=r;
+        }
+      }
+      return {range: range2, exp: y.minrange()};
     }
     var exp = evalrange(range);
     var hoges=[range];
@@ -191,22 +203,21 @@ var Solver={
       var tmps=[];
       hoges.forEach(function(range){
         Solver.split(range, function(subrange){
-          tmps.push({range:subrange,exp:evalrange(subrange)})
+          tmps.push(evalrange(subrange));
         })
       })
       tmps.sort(function(a,b){
-        return a.exp.min<b.exp.min?-1:+1;
+        return a.exp.max<b.exp.max?-1:1
       })
-      var max=tmps[0].exp.max;
+      var max=tmps[0].exp.max;;
       hoges = tmps.filter(function(tmp){
         return tmp.exp.min<=max
       }).map(function(tmp){
         return tmp.range
       });
       console.log(hoges.length,tmps.length,tmps[0].exp.min,max);
-      if(hoges.length>65536){
-        console.error('cannot');
-        hoges = hoges.slice(0,65536);
+      if(hoges.length>128){
+        hoges = hoges.slice(0,128);
       }
     }
     return hoges[0].map(function(v){
@@ -221,20 +232,19 @@ try{
 }catch(e){}
 (function(){
   // Solver=require('./range_solver.js')
-  out=Solver.minimize([[-1,1],[-1,1],[-1,1],[-1,1]],function(vars){
+  out=Solver.minimize([[-1,1],[-1,1],[-1,1],[-1,1],[-1,1]],function(vars){
     var x=vars[0],y=vars[1],z=vars[2],u=vars[3],v=vars[4];
     x=x.add(0.6);
     y=y.add(0.3);
     z=z.add(-0.5);
     u=u.add(0.2);
-    // v=v.add(-0.4);
+    v=v.add(-0.4);
     xx=x.mult(x).scale(0.1);
     yy=y.mult(y).scale(0.2);
     zz=z.mult(z).scale(1.2);
     uu=u.mult(u).scale(0.5);
-    // vv=v.mult(v).scale(2.4);
-    sum=xx.add(yy).add(zz).add(uu)//.add(vv)
-    // sum = x.scale(2).add(y).add(z).add(u).add(v);
+    vv=v.mult(v).scale(2.4);
+    sum=xx.add(yy).add(zz).add(uu).add(vv)
     return sum;
   });
   console.log(out)

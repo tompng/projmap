@@ -1,3 +1,4 @@
+var Heap=require('./heap.js')
 function Var(min,max,d){
   this.min = min;
   this.max = max;
@@ -159,6 +160,46 @@ var Solver={
     return v;
   },
   const: function(val){return new Var(val,val);},
+  split2: function(range,f){
+    var difmax=0,difindex=0;
+    for(var i=0;i<range.length;i++){
+      var dif=range[i].max-range[i].min;
+      if(dif<difmax)continue;
+      difmax=dif;
+      difindex=i;
+    }
+    var left=[],right=[];
+    for(var i=0;i<range.length;i++){
+      var r=range[i];
+      if(i==difindex){
+        var min=r.min,max=r.max;
+        var c=(min+max)/2;
+        left.push({min:min,max:c});
+        right.push({min:c,max:max});
+      }else{
+        left.push(r);
+        right.push(r);
+      }
+    }
+    if(f){f(left);f(right);}
+    return [left,right];
+  },
+  lrsplit: function(range,i,f){
+    var left=[],right=[];
+    for(var j=0;j<range.length;j++){
+      if(i%range.length==j){
+        var min=range[j].min,max=range[j].max;
+        var c=(min+max)/2;
+        left.push({min:min,max:c});
+        right.push({min:c,max:max});
+      }else{
+        left.push(range[j]);
+        right.push(range[j]);
+      }
+    }
+    if(f){f(left);f(right);}
+    return [left,right];
+  },
   split: function(range,f){
     var size=1<<range.length;
     var outs=[];
@@ -207,12 +248,25 @@ var Solver={
       }
       return {range: range2, exp: y.minrange()};
     }
-    var exp = evalrange(range);
-    var hoges=[range];
-    for(var i=0;i<20;i++){
+    var obj = evalrange(range);
+    var heap=new Heap();
+    heap.push(obj.exp.min,obj);
+    for(var i=0;i<1024*256;i++){
+      el=heap.pop();
+      if(i%16==0)console.log(heap.data.length,el.obj.exp)
+      if(i%256==0)console.log(el.obj.range)
+      Solver.split2(el.obj.range,function(subrange){
+        var obj=evalrange(subrange);
+        heap.push(obj.exp.min,obj);
+      })
+    }
+    return heap.pop().obj.range.map(function(r){
+      return (r.min+r.max)/2;
+    })
+    for(var i=0;i<6*20;i++){
       var tmps=[];
       hoges.forEach(function(range){
-        Solver.split(range, function(subrange){
+        Solver.lrsplit(range, i, function(subrange){
           tmps.push(evalrange(subrange));
         })
       })
@@ -227,8 +281,8 @@ var Solver={
       });
       console.log(hoges.length,tmps.length,tmps[0].exp);
       console.log(hoges[0]);
-      if(hoges.length>128){
-        hoges = hoges.slice(0,128);
+      if(hoges.length>2048){
+        hoges = hoges.slice(0,2048);
       }
     }
     return hoges[0].map(function(v){
@@ -255,9 +309,9 @@ try{
     zz=z.mult(z).scale(1.2);
     uu=u.mult(u).scale(0.5);
     vv=v.mult(v).scale(2.4);
-    sum=xx.add(yy).add(zz).add(uu).add(vv).cos().scale(-1)
+    sum=xx.add(yy).add(zz).add(uu).add(vv).sin()//.scale(-1)
     // return x.add(y).add(z).add(u).sub(v).add(sum);
     return sum;
   });
   console.log(out)
-})()
+})//()

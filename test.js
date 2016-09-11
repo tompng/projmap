@@ -1,10 +1,10 @@
-var projector={L: 1.25, Y: 0.1}
-var camera={position: {x: 1, y: 0.5, z: 0.3}, rotation: {x: 0.1, y: -0.1, z: 0.2}, L: 1.16}
+var projector={L: 2.21, Y: 0.2}
+var camera={position: {x: 1, y: 0.5, z: 0.3}, rotation: {x: 0.1, y: -0.1, z: 0.2}, L: 2.44}
 
 var forceOption={
   projL: false,
   projY: false,
-  camL: 1.16,
+  camL: 2.44,
 }
 
 function vecLinearAdd(a,va,b,vb){

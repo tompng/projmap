@@ -1,5 +1,5 @@
 forceOption={
-  projL: true,
+  projL: false,
   projY: false,
   camL: true,
 }
@@ -57,9 +57,9 @@ function genPoints(n){
 }
 var itemPoints = genPoints(20)
 
-var projector={L: 1, Y: 0.1}
+var projector={L: 1.25, Y: 0.1}
 var numCameras = 1
-var camera={position: {x: 1, y: 0.5, z: 0.3}, rotation: {x: 0.1, y: -0.1, z: 0.2}, L: 1}
+var camera={position: {x: 1, y: 0.5, z: 0.3}, rotation: {x: 0.1, y: -0.1, z: 0.2}, L: 1.16}
 
 var points = itemPoints.map(function(p){
   cproj = cameraProjection(camera, p)
@@ -95,7 +95,7 @@ var answer = {
   points: points
 }
 
-var cst=cost(ans=[projector.L-1,projector.Y,camera.L-1,
+var cst=cost(ans=[Math.sqrt(projector.L-1),projector.Y,Math.sqrt(camera.L-1),
   camera.position.x,camera.position.y,camera.position.z,
   camera.rotation.x,camera.rotation.y,camera.rotation.z,
 ])
@@ -103,11 +103,11 @@ console.error(cst)
 
 function solve(args){
   var cst = cost(args)||Infinity
-  if(forceOption.projL)args[0]=answer.projector.L-1
+  if(forceOption.projL)args[0]=Math.sqrt(answer.projector.L-1)
   if(forceOption.projY)args[1]=answer.projector.Y
-  if(forceOption.camL)args[2]=answer.camera.L-1
+  if(forceOption.camL)args[2]=Math.sqrt(answer.camera.L-1)
   args[3]=answer.camera.position.x
-  for(var i=0;i<10000;i++){
+  for(var i=0;i<40000;i++){
     var d=[],d2=0
     var c0=cost(args)
     for(var j=0;j<args.length;j++){
@@ -128,6 +128,7 @@ function solve(args){
       args=tmp;
       delta*=2;
     }
+    if(cst<1e-10)break;
     console.error(cst)
   }
   return args
@@ -141,10 +142,10 @@ console.log(out.map(function(a){return parseFloat(a.toFixed(4))}))
 
 function cost(args){
   args = new ArgsSlicer(args)
-  var projector = {L: 1+args.slice(), Y: args.slice()}
+  var projector = {L: 1+Math.pow(args.slice(),2), Y: args.slice()}
   var positionKey = ['x', 'y', 'z']
   var camera = {
-    L: 1+args.slice(),
+    L: 1+Math.pow(args.slice(),2),
     position: args.slice(positionKey),
     rotation: args.slice(positionKey)
   }

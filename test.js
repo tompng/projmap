@@ -1,7 +1,10 @@
-forceOption={
-  projL: true,
+var projector={L: 1.25, Y: 0.1}
+var camera={position: {x: 1, y: 0.5, z: 0.3}, rotation: {x: 0.1, y: -0.1, z: 0.2}, L: 1.16}
+
+var forceOption={
+  projL: false,
   projY: false,
-  camL: false,
+  camL: 1.16,
 }
 
 function vecLinearAdd(a,va,b,vb){
@@ -56,10 +59,6 @@ function genPoints(n){
   return points
 }
 var itemPoints = genPoints(20)
-
-var projector={L: 1.25, Y: 0.1}
-var numCameras = 1
-var camera={position: {x: 1, y: 0.5, z: 0.3}, rotation: {x: 0.1, y: -0.1, z: 0.2}, L: 1.16}
 
 var points = itemPoints.map(function(p){
   cproj = cameraProjection(camera, p)
@@ -191,9 +190,18 @@ function cost(args){
     rotation: args.slice(['x','y','z'])
   }
   var costs = 0
-  if(forceOption.projL)costs+=Math.pow(projector.L-answer.projector.L,2)
-  if(forceOption.projY)costs+=Math.pow(projector.Y-answer.projector.Y,2)
-  if(forceOption.camL)costs+=Math.pow(camera.L-answer.camera.L,2)
+  if(forceOption.projL){
+    var projL=forceOption.projL==true?answer.projector.L:forceOption.projL
+    costs+=Math.pow(projector.L-projL,2)
+  }
+  if(forceOption.projY){
+    var projY=forceOption.projY==true?answer.projector.Y:forceOption.projY
+    costs+=Math.pow(projector.L-projY,2)
+  }
+  if(forceOption.camL){
+    var camL=forceOption.camL==true?answer.camera.L:forceOption.camL
+    costs+=Math.pow(camera.L-camL,2)
+  }
   points.forEach(function(p){
     var pvec = {
       x: p.projector.x/projector.L,

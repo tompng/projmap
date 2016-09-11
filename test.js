@@ -1,0 +1,211 @@
+option={
+  forceProjL: true,
+  forceProjY: true,
+  forceCamL: true,
+  forceCamX0: true,
+  forceCamX1: true
+}
+
+function vecLinearAdd(a,va,b,vb){
+  return {
+    x: a*va.x+b*vb.x,
+    y: a*va.y+b*vb.y,
+    z: a*va.z+b*vb.z
+  }
+}
+function eulerRot(v,rot){
+  var cx=Math.cos(rot.x), sx=Math.sin(rot.x)
+  var cy=Math.cos(rot.y), sy=Math.sin(rot.y)
+  var cz=Math.cos(rot.z), sz=Math.sin(rot.z)
+  var vx={x: v.x, y: v.y*cx-v.z*sx, z: v.y*sx+v.z*cx}
+  var vy={x: vx.x*cy-vx.z*sy, y: vx.y, z: vx.x*sy+vx.z*cy}
+  return {x: vy.x*cz-vy.y*sz, y: vy.x*sz+vy.y*cz, z: vy.z}
+}
+function vecDot(a,b){
+  return a.x*b.x+a.y*b.y+(a.z*b.z||0)
+}
+function vecCross(a,b){
+  return {
+    x: a.y*b.z-a.z*b.y,
+    y: a.z*b.x-a.x*b.z,
+    z: a.x*b.y-a.y*b.x
+  }
+}
+function reverseEulerRot(v,rot){
+  var cx=Math.cos(rot.x), sx=Math.sin(rot.x)
+  var cy=Math.cos(rot.y), sy=Math.sin(rot.y)
+  var cz=Math.cos(rot.z), sz=Math.sin(rot.z)
+  var vz={x: v.x*cz+v.y*sz, y: -v.x*sz+v.y*cz, z: v.z}
+  var vy={x: vz.x*cy+vz.z*sy, y: vz.y, z: -vz.x*sy+vz.z*cy}
+  return {x: vy.x, y: vy.y*cx+vy.z*sx, z: -vy.y*sx+vy.z*cx}
+}
+
+function cameraProjection(camera,point){
+  var cp = vecLinearAdd(1, point, -1, camera.position)
+  return eulerRot(cp, camera.rotation)
+}
+
+function seedRandom(){
+  if(!seedRandom.seed)seedRandom.seed=1234.567;
+  seedRandom.seed = Math.sin(seedRandom.seed+seedRandom.seed*seedRandom.seed)
+  return 65536*(1+Math.sin(seedRandom.seed))%1
+}
+function genPoints(n){
+  var points = []
+  for(var i=0;i<n;i++){
+    points.push({x: 2*seedRandom()-1, y: 2*seedRandom()-1, z: 4+2*seedRandom()})
+  }
+  return points
+}
+var itemPoints = genPoints(20)
+
+var projector={L: 1, Y: 0.1}
+var numCameras = 2
+var camera={L: 1}
+var cameras = [
+  {position: {x: 1, y: 0.5, z: 0.3}, rotation: {x: 0.1, y: -0.1, z: 0.2}},
+  {position: {x: -1, y: -0.3, z: 0.1}, rotation: {x: -0.2, y: 0.1, z: -0.1}},
+  {position: {x: 0.1, y: 1, z: -0.2}, rotation: {x: 0.2, y: -0.2, z: 0.1}}
+]
+
+var points = itemPoints.map(function(p){
+  var out = {
+    position: p, cameras: [],
+    projector: {x: p.x/p.z*projector.L, y: p.y/p.z*projector.L+projector.Y}
+  }
+  for(cid in cameras){
+    proj = cameraProjection(cameras[cid], p)
+    out.cameras[cid] = {x: proj.x/proj.z*camera.L, y: proj.y/proj.z*camera.L}
+  }
+  return out
+})
+
+function ArgsSlicer(args){
+  this.index = 0
+  this.length = args.length
+  this.slice = function(keys){
+    var self = this
+    var out
+    if(keys == undefined){
+      return args[this.index++]
+    }if(typeof keys == 'number'){
+      out = []
+      for(var i=0;i<keys;i++)out[i]=args[this.index++]
+    }else{
+      out = {}
+      keys.forEach(function(key){out[key]=args[self.index++]})
+    }
+    return out
+  }
+}
+
+var answer = {
+  projector: projector,
+  camera: camera,
+  cameras: cameras,
+  points: points
+}
+
+var cst=cost(ans=[projector.L-1,projector.Y,camera.L-1,
+  cameras[0].position.x,cameras[0].position.y,cameras[0].position.z,
+  cameras[0].rotation.x,cameras[0].rotation.y,cameras[0].rotation.z,
+  cameras[1].position.x,cameras[1].position.y,cameras[1].position.z,
+  cameras[1].rotation.x,cameras[1].rotation.y,cameras[1].rotation.z,
+  // cameras[2].position.x,cameras[1].position.y,cameras[1].position.z,
+  // cameras[2].rotation.x,cameras[1].rotation.y,cameras[1].rotation.z,
+])
+console.error(cst)
+
+function solve(args){
+  var cst = cost(args)||Infinity
+  if(option.forceProjL)args[0]=answer.projector.L-1
+  if(option.forceProjY)args[1]=answer.projector.Y
+  if(option.forceCamL)args[2]=answer.camera.L-1
+  if(option.forceCamX0)args[3]=answer.cameras[0].position.x
+  if(option.forceCamX1)args[9]=answer.cameras[1].position.x
+  for(var i=0;i<10000;i++){
+    var d=[],d2=0
+    var c0=cost(args)
+    for(var j=0;j<args.length;j++){
+      var tmp=args.concat()
+      tmp[j]+=0.0000000001
+      d[j]=cost(tmp)-c0
+      d2+=d[j]*d[j]
+    }
+    var dlen=Math.sqrt(d2)
+    d=d.map(function(v){return v/dlen})
+    var delta = 0.0000000001
+    var a0=args.concat()
+    while(true){
+      var tmp=a0.map(function(v,i){return v-delta*d[i]})
+      var c = cost(tmp)
+      if(c>cst)break;
+      cst=c;
+      args=tmp;
+      delta*=2;
+    }
+    console.error(cst)
+  }
+  return args
+}
+
+out=solve([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0].map(function(){
+  return 0.1*(2*Math.random()-1)
+}))
+console.log(ans)
+console.log(out.map(function(a){return parseFloat(a.toFixed(4))}))
+
+function cost(args){
+  args = new ArgsSlicer(args)
+  var projector = {L: 1+args.slice(), Y: args.slice()}
+  var camera = {L: 1+args.slice()}
+  var positionKey = ['x', 'y', 'z']
+  var cameras=[];
+  for(var i=0;i<numCameras;i++){
+    cameras[i] = {
+      position: args.slice(positionKey),
+      rotation: args.slice(positionKey)
+    }
+  }
+  if(option.forceProjL)projector.L=answer.projector.L
+  if(option.forceProjY)projector.Y=answer.projector.Y
+  if(option.forceCamL)camera.L=answer.camera.L
+  if(option.forceCamX0)cameras[0].position.x=answer.cameras[0].position.x
+  if(option.forceCamX1)cameras[1].position.x=answer.cameras[1].position.x
+  var costs = 0
+  points.forEach(function(p){
+    var pvec = {
+      x: p.projector.x/projector.L,
+      y: (p.projector.y-projector.Y)/projector.L,
+      z: 1
+    }
+    var cvps = cameras.map(function(cam,i){
+      var vec = reverseEulerRot({
+        x: p.cameras[i].x/camera.L,
+        y: p.cameras[i].y/camera.L,
+        z: 1
+      },cam.rotation)
+      var vv=vecLinearAdd(1,p.position,-1,cam.position)
+      return {
+        vec: vec,
+        pos: cam.position
+      }
+    })
+    cvps.forEach(function(cam){
+      var a=pvec,b=cam.pos,c=cam.vec;
+      var aa=vecDot(a,a),bb=vecDot(b,b),cc=vecDot(c,c)
+      var ab=vecDot(a,b),bc=vecDot(b,c),ac=vecDot(a,c)
+      //min |a*s-(b+c*t)|
+      var D=aa*cc-ac*ac
+      var sD=ac*bc-cc*ab
+      var tD=-ac*ab+aa*bc
+      var minDiffD = ab*sD-bc*tD+bb*D
+      // costs += minDiffD
+
+      var cross = vecCross(b,c)
+      var dot= vecDot(cross, a)
+      costs += dot*dot
+    })
+  })
+  return costs;
+}

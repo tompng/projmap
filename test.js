@@ -1,9 +1,7 @@
-option={
-  forceProjL: true,
-  forceProjY: true,
-  forceCamL: true,
-  forceCamX0: true,
-  forceCamX1: true
+forceOption={
+  projL: true,
+  projY: false,
+  camL: true,
 }
 
 function vecLinearAdd(a,va,b,vb){
@@ -60,24 +58,16 @@ function genPoints(n){
 var itemPoints = genPoints(20)
 
 var projector={L: 1, Y: 0.1}
-var numCameras = 2
-var camera={L: 1}
-var cameras = [
-  {position: {x: 1, y: 0.5, z: 0.3}, rotation: {x: 0.1, y: -0.1, z: 0.2}},
-  {position: {x: -1, y: -0.3, z: 0.1}, rotation: {x: -0.2, y: 0.1, z: -0.1}},
-  {position: {x: 0.1, y: 1, z: -0.2}, rotation: {x: 0.2, y: -0.2, z: 0.1}}
-]
+var numCameras = 1
+var camera={position: {x: 1, y: 0.5, z: 0.3}, rotation: {x: 0.1, y: -0.1, z: 0.2}, L: 1}
 
 var points = itemPoints.map(function(p){
-  var out = {
-    position: p, cameras: [],
+  cproj = cameraProjection(camera, p)
+  return {
+    position: p,
+    camera: {x: cproj.x/cproj.z*camera.L, y: cproj.y/cproj.z*camera.L},
     projector: {x: p.x/p.z*projector.L, y: p.y/p.z*projector.L+projector.Y}
   }
-  for(cid in cameras){
-    proj = cameraProjection(cameras[cid], p)
-    out.cameras[cid] = {x: proj.x/proj.z*camera.L, y: proj.y/proj.z*camera.L}
-  }
-  return out
 })
 
 function ArgsSlicer(args){
@@ -102,39 +92,33 @@ function ArgsSlicer(args){
 var answer = {
   projector: projector,
   camera: camera,
-  cameras: cameras,
   points: points
 }
 
 var cst=cost(ans=[projector.L-1,projector.Y,camera.L-1,
-  cameras[0].position.x,cameras[0].position.y,cameras[0].position.z,
-  cameras[0].rotation.x,cameras[0].rotation.y,cameras[0].rotation.z,
-  cameras[1].position.x,cameras[1].position.y,cameras[1].position.z,
-  cameras[1].rotation.x,cameras[1].rotation.y,cameras[1].rotation.z,
-  // cameras[2].position.x,cameras[1].position.y,cameras[1].position.z,
-  // cameras[2].rotation.x,cameras[1].rotation.y,cameras[1].rotation.z,
+  camera.position.x,camera.position.y,camera.position.z,
+  camera.rotation.x,camera.rotation.y,camera.rotation.z,
 ])
 console.error(cst)
 
 function solve(args){
   var cst = cost(args)||Infinity
-  if(option.forceProjL)args[0]=answer.projector.L-1
-  if(option.forceProjY)args[1]=answer.projector.Y
-  if(option.forceCamL)args[2]=answer.camera.L-1
-  if(option.forceCamX0)args[3]=answer.cameras[0].position.x
-  if(option.forceCamX1)args[9]=answer.cameras[1].position.x
+  if(forceOption.projL)args[0]=answer.projector.L-1
+  if(forceOption.projY)args[1]=answer.projector.Y
+  if(forceOption.camL)args[2]=answer.camera.L-1
+  args[3]=answer.camera.position.x
   for(var i=0;i<10000;i++){
     var d=[],d2=0
     var c0=cost(args)
     for(var j=0;j<args.length;j++){
       var tmp=args.concat()
-      tmp[j]+=0.0000000001
+      tmp[j]+=0.000000000001
       d[j]=cost(tmp)-c0
       d2+=d[j]*d[j]
     }
     var dlen=Math.sqrt(d2)
     d=d.map(function(v){return v/dlen})
-    var delta = 0.0000000001
+    var delta = 0.000000000001
     var a0=args.concat()
     while(true){
       var tmp=a0.map(function(v,i){return v-delta*d[i]})
@@ -149,7 +133,7 @@ function solve(args){
   return args
 }
 
-out=solve([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0].map(function(){
+out=solve([0,0,0,0,0,0,0,0,0].map(function(){
   return 0.1*(2*Math.random()-1)
 }))
 console.log(ans)
@@ -158,20 +142,16 @@ console.log(out.map(function(a){return parseFloat(a.toFixed(4))}))
 function cost(args){
   args = new ArgsSlicer(args)
   var projector = {L: 1+args.slice(), Y: args.slice()}
-  var camera = {L: 1+args.slice()}
   var positionKey = ['x', 'y', 'z']
-  var cameras=[];
-  for(var i=0;i<numCameras;i++){
-    cameras[i] = {
-      position: args.slice(positionKey),
-      rotation: args.slice(positionKey)
-    }
+  var camera = {
+    L: 1+args.slice(),
+    position: args.slice(positionKey),
+    rotation: args.slice(positionKey)
   }
-  if(option.forceProjL)projector.L=answer.projector.L
-  if(option.forceProjY)projector.Y=answer.projector.Y
-  if(option.forceCamL)camera.L=answer.camera.L
-  if(option.forceCamX0)cameras[0].position.x=answer.cameras[0].position.x
-  if(option.forceCamX1)cameras[1].position.x=answer.cameras[1].position.x
+  if(forceOption.projL)projector.L=answer.projector.L
+  if(forceOption.projY)projector.Y=answer.projector.Y
+  if(forceOption.camL)camera.L=answer.camera.L
+  camera.position.x=answer.camera.position.x
   var costs = 0
   points.forEach(function(p){
     var pvec = {
@@ -179,33 +159,25 @@ function cost(args){
       y: (p.projector.y-projector.Y)/projector.L,
       z: 1
     }
-    var cvps = cameras.map(function(cam,i){
-      var vec = reverseEulerRot({
-        x: p.cameras[i].x/camera.L,
-        y: p.cameras[i].y/camera.L,
-        z: 1
-      },cam.rotation)
-      var vv=vecLinearAdd(1,p.position,-1,cam.position)
-      return {
-        vec: vec,
-        pos: cam.position
-      }
-    })
-    cvps.forEach(function(cam){
-      var a=pvec,b=cam.pos,c=cam.vec;
-      var aa=vecDot(a,a),bb=vecDot(b,b),cc=vecDot(c,c)
-      var ab=vecDot(a,b),bc=vecDot(b,c),ac=vecDot(a,c)
-      //min |a*s-(b+c*t)|
-      var D=aa*cc-ac*ac
-      var sD=ac*bc-cc*ab
-      var tD=-ac*ab+aa*bc
-      var minDiffD = ab*sD-bc*tD+bb*D
-      // costs += minDiffD
+    var cpos = camera.position
+    var cvec = reverseEulerRot({
+      x: p.camera.x/camera.L,
+      y: p.camera.y/camera.L,
+      z: 1
+    },camera.rotation)
+    var a=pvec,b=camera.position,c=cvec;
+    var aa=vecDot(a,a),bb=vecDot(b,b),cc=vecDot(c,c)
+    var ab=vecDot(a,b),bc=vecDot(b,c),ac=vecDot(a,c)
+    //min |a*s-(b+c*t)|
+    // var D=aa*cc-ac*ac
+    // var sD=ac*bc-cc*ab
+    // var tD=-ac*ab+aa*bc
+    // var minDiffD = ab*sD-bc*tD+bb*D
+    // costs += minDiffD
 
-      var cross = vecCross(b,c)
-      var dot= vecDot(cross, a)
-      costs += dot*dot
-    })
+    var cross = vecCross(b,c)
+    var dot= vecDot(cross, a)
+    costs += dot*dot
   })
   return costs;
 }

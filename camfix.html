@@ -1,0 +1,61 @@
+<script>
+  var onFailSoHard = function(e) {
+    console.log('Reeeejected!', e)
+  };
+  function trans(r,k){
+    return r+k*r*r*r
+  }
+  function invtrans(r2,k){
+    var r=r2,v,d;
+    v=r+k*r*r*r;d=1+3*k*r*r;r+=(r2-v)/d;
+    v=r+k*r*r*r;d=1+3*k*r*r;r+=(r2-v)/d;
+    v=r+k*r*r*r;d=1+3*k*r*r;r+=(r2-v)/d;
+    v=r+k*r*r*r;d=1+3*k*r*r;r+=(r2-v)/d;
+    v=r+k*r*r*r;d=1+3*k*r*r;r+=(r2-v)/d;
+    return r;
+  }
+  var video = document.createElement('video')
+  var canvas=document.createElement('canvas')
+  navigator.webkitGetUserMedia({video: true, audio: false}, function(localMediaStream) {
+    window.stream=localMediaStream
+    video.src = URL.createObjectURL(localMediaStream)
+    document.onmousemove=function(e){
+      window.K=0.2*(2*e.pageX/window.innerWidth-1)
+    }
+    video.play()
+    document.body.appendChild(canvas)
+    setInterval(draw,100)
+  }, onFailSoHard);
+  function draw(){
+    if(canvas.width!=video.videoWidth||canvas.height!=video.videoHeight){
+      canvas.width=video.videoWidth
+      canvas.height=video.videoHeight
+      canvas.context=canvas.getContext('2d')
+      canvas.imagedata=canvas.context.createImageData(canvas.width,canvas.height)
+    }
+    var g=canvas.context
+    window.g=g
+    g.drawImage(video,0,0)
+    var k=window.K||0
+    var data=g.getImageData(0,0,canvas.width,canvas.height)
+    for(var ix=0;ix<canvas.width;ix++)for(var iy=0;iy<canvas.height;iy++){
+      var x=2*(ix+0.5)/canvas.width-1
+      var y=2*(iy+0.5-canvas.height/2)/canvas.width
+      var rr=x*x+y*y
+      x*=(1+k*rr);y*=(1+k*rr)
+      var jx=Math.round((x+1)/2*canvas.width-0.5)
+      var jy=Math.round(y/2*canvas.width+canvas.height/2-0.5)
+      var index=4*(iy*canvas.width+ix)
+      if(0<=jx&&jx<canvas.width&&0<=jy&&jy<canvas.height){
+        var jndex=4*(jy*canvas.width+jx)
+        for(var i=0;i<4;i++)canvas.imagedata.data[index+i]=data.data[jndex+i]
+      }else{
+        for(var i=0;i<4;i++)canvas.imagedata.data[index+i]=0
+      }
+      document.querySelector('div').textContent=k;
+    }
+    g.putImageData(canvas.imagedata,0,0)
+
+  }
+</script>
+<div></div>

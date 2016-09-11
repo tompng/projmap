@@ -1,7 +1,7 @@
 forceOption={
-  projL: false,
+  projL: true,
   projY: false,
-  camL: true,
+  camL: false,
 }
 
 function vecLinearAdd(a,va,b,vb){
@@ -96,45 +96,83 @@ var answer = {
 }
 
 var cst=cost(ans=[Math.sqrt(projector.L-1),projector.Y,Math.sqrt(camera.L-1),
-  camera.position.x,camera.position.y,camera.position.z,
+  camera.position.y,camera.position.z,
   camera.rotation.x,camera.rotation.y,camera.rotation.z,
 ])
 console.error(cst)
 
-function solve(args){
-  var cst = cost(args)||Infinity
-  if(forceOption.projL)args[0]=Math.sqrt(answer.projector.L-1)
-  if(forceOption.projY)args[1]=answer.projector.Y
-  if(forceOption.camL)args[2]=Math.sqrt(answer.camera.L-1)
-  args[3]=answer.camera.position.x
-  for(var i=0;i<40000;i++){
-    var d=[],d2=0
-    var c0=cost(args)
+//xx+5xx+10xy+5yy
+//6xx+10xy+5yy
+//x: 12x+10y
+//y: 10x+10y
+//xx: 12
+//yy: 10
+//xy: 10
+
+function fastSolve(func, args){
+  for(var i=0;i<10000;i++){
+    var df=[]
+    var ddf=[]
+    var delta=0.00000001
+    var c0=func(args)
+    var cost=c0
     for(var j=0;j<args.length;j++){
       var tmp=args.concat()
-      tmp[j]+=0.000000000001
-      d[j]=cost(tmp)-c0
-      d2+=d[j]*d[j]
+      var tj=tmp[j],cplus=0,cminus=0
+      tmp[j]=tj+delta
+      cplus=func(tmp)
+      tmp[j]=tj-delta
+      cminus=func(tmp)
+      df[j]=(cplus-cminus)/delta/2
+      ddf[j]=[]
+      for(var k=0;k<args.length;k++){
+        if(j==k)ddf[j][k]=(cplus+cminus-2*c0)/delta/delta
+        else{
+          var tk=tmp[k]
+          var djksum=0;
+          tmp[j]=tj+delta;tmp[k]=tk+delta;
+          djksum+=func(tmp)
+          tmp[j]=tj-delta;tmp[k]=tk-delta;
+          djksum+=func(tmp)
+          tmp[j]=tj+delta;tmp[k]=tk-delta;
+          djksum-=func(tmp)
+          tmp[j]=tj-delta;tmp[k]=tk+delta;
+          djksum-=func(tmp)
+          ddf[j][k]=djksum/4/delta/delta
+        }
+      }
     }
-    var dlen=Math.sqrt(d2)
-    d=d.map(function(v){return v/dlen})
-    var delta = 0.000000000001
-    var a0=args.concat()
-    while(true){
-      var tmp=a0.map(function(v,i){return v-delta*d[i]})
-      var c = cost(tmp)
-      if(c>cst)break;
-      cst=c;
-      args=tmp;
-      delta*=2;
+    var dnewton = solveMatrix(ddf,df.concat())
+    var ntmp=args.map(function(v,i){return v-dnewton[i]})
+    var ncost = func(ntmp)
+    if(ncost<cost){
+      console.log('newton', cost)
+      cost=ncost
+      args=ntmp
+    }else{
+      var d2sum=0
+      df.forEach(function(d){d2sum+=d*d})
+      var dlen=Math.sqrt(d2sum)
+      var d=delta
+      var processed=false
+      while(true){
+        var tmp = args.map(function(v,i){return v-d*df[i]/dlen})
+        var gcost = func(tmp)
+        if(gcost>=cost)break
+        processed=true
+        cost=gcost
+        args=tmp
+        d*=2
+      }
+      if(!processed){console.error('failed');break}
+      console.error('grad', cost)
     }
-    if(cst<1e-10)break;
-    console.error(cst)
+    if(cost<1e-10){console.log('END:',cost);break;}
   }
   return args
 }
 
-out=solve([0,0,0,0,0,0,0,0,0].map(function(){
+out=fastSolve(cost, [0,0,0,0,0,0,0,0].map(function(){
   return 0.1*(2*Math.random()-1)
 }))
 console.log(ans)
@@ -143,17 +181,19 @@ console.log(out.map(function(a){return parseFloat(a.toFixed(4))}))
 function cost(args){
   args = new ArgsSlicer(args)
   var projector = {L: 1+Math.pow(args.slice(),2), Y: args.slice()}
-  var positionKey = ['x', 'y', 'z']
   var camera = {
     L: 1+Math.pow(args.slice(),2),
-    position: args.slice(positionKey),
-    rotation: args.slice(positionKey)
+    position: {
+      x: answer.camera.position.x,
+      y: args.slice(),
+      z: args.slice()
+    },
+    rotation: args.slice(['x','y','z'])
   }
-  if(forceOption.projL)projector.L=answer.projector.L
-  if(forceOption.projY)projector.Y=answer.projector.Y
-  if(forceOption.camL)camera.L=answer.camera.L
-  camera.position.x=answer.camera.position.x
   var costs = 0
+  if(forceOption.projL)costs+=Math.pow(projector.L-answer.projector.L,2)
+  if(forceOption.projY)costs+=Math.pow(projector.Y-answer.projector.Y,2)
+  if(forceOption.camL)costs+=Math.pow(camera.L-answer.camera.L,2)
   points.forEach(function(p){
     var pvec = {
       x: p.projector.x/projector.L,
@@ -175,10 +215,31 @@ function cost(args){
     // var tD=-ac*ab+aa*bc
     // var minDiffD = ab*sD-bc*tD+bb*D
     // costs += minDiffD
-
     var cross = vecCross(b,c)
     var dot= vecDot(cross, a)
     costs += dot*dot
   })
   return costs;
+}
+
+function solveMatrix(matrix,val){
+  var size=matrix.length;
+  for(var i=0;i<size;i++){
+    for(var j=i+1;j<size;j++){
+      var s=matrix[j][i]/matrix[i][i];
+      for(var k=i+1;k<size;k++){
+        matrix[j][k]-=s*matrix[i][k];
+      }
+      val[j]-=s*val[i];
+    }
+  }
+  var out=[];
+  for(var i=size-1;i>=0;i--){
+    out[i]=val[i]/matrix[i][i];
+    for(var j=i-1;j>=0;j--){
+      var s=matrix[j][i]/matrix[i][i]
+      val[j]-=s*val[i];
+    }
+  }
+  return out;
 }

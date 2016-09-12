@@ -129,97 +129,37 @@ function Calibrator(canvas,output){
     output.context.putImageData(cdata,0,0);
   }
   this.mapping=function(){
-    var map=[];
-    var camL=2;
-    var projL=2;
+    var map=arr2D(canvas.width,canvas.height,null);
     for(var x=0;x<canvas.width;x++)for(var y=0;y<canvas.height;y++){
       var x1=invcode(xcode1[x][y]),x2=invcode(((1<<wlevel)-1)^xcode2[x][y])
       var y1=invcode(ycode1[x][y]),y2=invcode(((1<<hlevel)-1)^ycode2[x][y])
-      if((x1-x2)*(x1-x2)+(y1-y2)*(y1-y2)>64){continue;}
+      if((x1-x2)*(x1-x2)+(y1-y2)*(y1-y2)>64)continue;
       var xx=(x1+x2)/2,yy=(y1+y2)/2;
-      var cam={
-        x:(x-canvas.width/2)/canvas.width,
-        y:(y-canvas.height/2)/canvas.width
-      }
-      var proj={
-        x:(xx-canvas.width/2)/canvas.width,
-        y:(yy-canvas.height/2)/canvas.width
-      }
-      var vec1={x:proj.x,y:proj.y-3/8,z:projL};
-      var vec2={x:cam.x,y:cam.y,z:camL};
-      var th=30*Math.PI/180;
-      vec2={
-        x:vec2.x*Math.cos(th)-vec2.z*Math.sin(th),
-        y:vec2.y,
-        z:vec2.z*Math.cos(th)+vec2.x*Math.sin(th)
-      }
-
-      var cpos={x:1,y:0,z:0};
-      var a=Vector.dot(vec1,vec1);
-      var b=-Vector.dot(vec1,vec2);
-      var c=-Vector.dot(vec1,vec2);
-      var d=Vector.dot(vec2,vec2);
-      var p=Vector.dot(vec1,cpos);
-      var q=-Vector.dot(vec2,cpos);
-      var D=a*d-b*c;
-      var pdepth=(p*d-b*q)/D
-      var cdepth=(a*q-p*c)/D
-      if(!map[x])map[x]=[]
       map[x][y]={
-        camera: cam,
-        projector: proj,
-        depth: pdepth,
-        cameraDepth: cdepth
-      };
-      // (v1*x+v2*y-cpos)2d=0
-      // v1*v1*xx+v2*v2*yy+cpos*cpos -2v1v2xy-2v1cposx+v2cposy=0
-      // v1v1x-v1v2y=v1cpos
-      // -v1v2x+v2v2y=-v2cposy
+        camera: {
+          x:(2*x-canvas.width)/canvas.width,
+          y:(2*y-canvas.height)/canvas.width
+        },
+        projector: {
+          x:(2*xx-canvas.width)/canvas.width,
+          y:(2*yy-canvas.height)/canvas.width
+        }
+      }
     }
     return map;
   }
-  this.smoothdepth=function(){
-    if(this.smoothdepthmap)return this.smoothdepthmap;
-    var map=this.mapping();
-    var smoothed=[];
-    var width=canvas.width,height=canvas.height;
-    for(var x=0;x<width;x++)if(!smoothed[x])smoothed[x]=[];
-    for(var x=0;x<width;x++)for(var y=0;y<height;y++){
-      if(!map[x]||!map[x][y])continue;
-      var m=map[x][y];
-      var R=4;
-      var px=Math.round(m.projector.x*width+width/2),py=Math.round(m.projector.y*width+height/2);
-      for(var ix=-R;ix<=R;ix++)for(var iy=-R;iy<=R;iy++){
-        var xx=px+ix,yy=py+iy;
-        if(xx<0||yy<0||xx>=width||yy>=height)continue;
-        var w=1-(ix*ix+iy*iy)/(R+1)/(R+1);
-        if(w<0)continue;
-        w*=w;
-        if(!smoothed[xx][yy])smoothed[xx][yy]={w:0,s:0};
-        smoothed[xx][yy].w+=w;
-        smoothed[xx][yy].s+=w*m.depth;
-      }
-    }
-    for(var x=0;x<width;x++)for(var y=0;y<height;y++){
-      var s=smoothed[x][y];
-      if(s){
-        smoothed[x][y]=s.s/s.w;
-      }
-    }
-    return this.smoothdepthmap=smoothed;
-  }
   this.show=function(){
     var g=canvas.context;
+    g.clearRect(0,0,canvas.width,canvas.height)
     var canvas2=createCanvas(canvas.width,canvas.height);
     var g2=canvas2.context;g2.drawImage(canvas,0,1)
+    var map=this.mapping()
     for(var x=0;x<canvas.width;x++)for(var y=0;y<canvas.height;y++){
-      var x1=invcode(xcode1[x][y]),x2=invcode(((1<<wlevel)-1)^xcode2[x][y])
-      var y1=invcode(ycode1[x][y]),y2=invcode(((1<<hlevel)-1)^ycode2[x][y])
-      if((x1-x2)*(x1-x2)+(y1-y2)*(y1-y2)>64){continue;}
-      var xx=(x1+x2)/2,yy=(y1+y2)/2;
-      g.fillStyle='rgb('+Math.round(0xff*xx/canvas.width)+','+Math.round(0xff*yy/canvas.height)+','+0xff+')';
+      if(!map[x][y])continue
+      var proj=map[x][y].projector
+      g.fillStyle='rgb('+Math.round(0xff*(1+proj.x)/2)+','+Math.round(0xff*(proj.y+1)/2)+','+0xff+')';
       g.fillRect(x,y,1,1)
-      var color=1-Math.pow(Math.max((Math.cos(xx/2)+1)/2,(Math.cos(yy/2)+1)/2),10)
+      var color=1-Math.pow(Math.max((Math.cos(proj.x*canvas.width/4)+1)/2,(Math.cos(proj.y*canvas.width/4)+1)/2),10)
       var cff=Math.round(0xff*color);
       g2.fillStyle='rgb('+cff+','+cff+','+cff+')';
       g2.fillRect(x,y,1,1)
@@ -227,36 +167,7 @@ function Calibrator(canvas,output){
     canvas2.style.width=canvas2.style.height='100%'
     document.body.appendChild(canvas);
     document.body.appendChild(canvas2);
-
-    var canvas3=createCanvas(canvas.width,canvas.height);
-    var g3=canvas3.getContext('2d');
     var map=this.mapping();
-    var depthmin,depthmax;
-    var count=0;
-    for(var x=0;x<canvas.width;x++)for(var y=0;y<canvas.height;y++){
-      var m=map[x]&&map[x][y];
-      if(!m)continue;
-      if(!depthmin||m.depth<depthmin)depthmin=m.depth;
-      if(!depthmax||depthmax<m.depth)depthmax=m.depth;
-      count++;
-    }
-    console.error(depthmin,depthmax,count);
-    var smoothed=this.smoothdepth();
-    for(var x=0;x<canvas.width;x++)for(var y=0;y<canvas.height;y++){
-      var depth=smoothed[x][y]
-      if(!depth)continue;
-      var r=Math.round(0xff*(depth-depthmin)/(depthmax-depthmin));
-      var r=Math.round(0xff*(Math.cos(Math.PI*1/3+64*depth)+1)/2).toString(16);
-      var g=Math.round(0xff*(Math.cos(Math.PI*3/3+64*depth)+1)/2).toString(16);
-      var b=Math.round(0xff*(Math.cos(Math.PI*5/3+64*depth)+1)/2).toString(16);
-      if(r.length==1)r='0'+r;
-      if(g.length==1)g='0'+g;
-      if(b.length==1)b='0'+b;
-      g3.fillStyle='#'+r+g+b;
-      g3.fillRect(x,y,1,1);
-    }
-    canvas3.style.width=canvas3.style.height='100%'
-    document.body.appendChild(canvas3);
   }
 
   this.genInv=function(){
@@ -274,12 +185,12 @@ function Calibrator(canvas,output){
       y:arr2D(output.width,output.height,0)
     }
     window.proj = proj;
+    var map=this.mapping()
     for(var x=0;x<canvas.width;x++)for(var y=0;y<canvas.height;y++){
-      var x1=invcode(xcode1[x][y]),x2=invcode(((1<<wlevel)-1)^xcode2[x][y])
-      var y1=invcode(ycode1[x][y]),y2=invcode(((1<<hlevel)-1)^ycode2[x][y])
-      if((x1-x2)*(x1-x2)+(y1-y2)*(y1-y2)>64)continue;
-      coord.x[x][y]=(x1+x2)/2;
-      coord.y[x][y]=(y1+y2)/2;
+      if(!map[x][y])continue
+      var proj=map[x][y].projector
+      coord.x[x][y]=proj.x*canvas.width/2+canvas.width/2
+      coord.y[x][y]=proj.y*canvas.width/2+(canvas.width+canvas.height)/4
     }
     function triangle(px1,py1,px2,py2,px3,py3){
       var cx1=coord.x[px1][py1],cy1=coord.y[px1][py1];
@@ -339,52 +250,6 @@ function Calibrator(canvas,output){
       og.fillStyle='rgb('+cff+','+cff+','+cff+')';
       og.fillRect(x,y,1,1);
     }
-  }
-  var time=new Date();
-  this.renderProjMap=function(){
-    var func;
-    var depth=this.smoothdepth();
-    var t=(new Date()-time)/1000;
-    if(mouse.x<-0.95){
-      this.reverseRenderCam();
-      return;
-    }
-    if(mouse.x>0.95){
-      func=function(x,y){
-        var d=depth[x][y];
-        return [
-          (Math.cos(128*d+Math.PI*0/3)+1)/2,
-          (Math.cos(128*d+Math.PI*2/3)+1)/2,
-          (Math.cos(128*d+Math.PI*4/3)+1)/2
-        ]
-      }
-    }else{
-      var mr=Math.sqrt(1+mouse.x*mouse.x+mouse.y*mouse.y);
-      func=function(x,y){
-        if(x==0||y==0||x>=canvas.width-1||y>=canvas.height-1)return;
-        var dx=depth[x+1][y]-depth[x-1][y];
-        var dy=depth[x][y+1]-depth[x][y-1];
-        var dz=0.0001;
-        var dr=Math.sqrt(dx*dx+dy*dy+dz*dz);
-        var dot=(dx*mouse.x+dy*mouse.y+dz)/dr/mr;
-        dot=dot+Math.sin(t+128*depth[x][y])/2;
-        return [(Math.sin(3*dot+1)+1)/2,(Math.sin(5*dot+2)+1)/2,(Math.sin(7*dot+3)+1)/2];
-      }
-    }
-    var cdata=output.context.getImageData(0,0,canvas.width,canvas.height);
-    for(var x=0;x<canvas.width;x++)for(var y=0;y<canvas.height;y++){
-      var col=func(x,y);
-      var index=4*(y*canvas.width+x);
-      if(col){
-        cdata.data[index+0]=(col[0]||col.r)*0xff;
-        cdata.data[index+1]=(col[1]||col.g)*0xff;
-        cdata.data[index+2]=(col[2]||col.b)*0xff;
-        cdata.data[index+3]=0xff;
-      }else{
-        for(var i=0;i<4;i++)cdata.data[index+i]=0;
-      }
-    }
-    output.context.putImageData(cdata,0,0);
   }
 }
 
@@ -446,15 +311,6 @@ function calibrateStart(){
       canvas2.style.width=canvas2.style.height='100%'
       document.body.appendChild(canvas2);
     },1000)
-    setInterval(function(){
-      // calibrator.reverseRenderCam();
-      calibrator.renderProjMap();
-    },8)
-  }
-  window.mouse={x:0,y:0};
-  document.body.onmousemove=function(e){
-    window.mouse.x=2*e.pageX/innerWidth-1
-    window.mouse.y=2*e.pageY/innerHeight-1
   }
   document.body.onclick=function(){
     setTimeout(render,interval);

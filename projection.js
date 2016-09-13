@@ -51,8 +51,8 @@ function ArgsSlicer(args){
   }
 }
 
-function fastSolve(func, args){
-  for(var i=0;i<10000;i++){
+function fastSolve(func, args, loop){
+  for(var i=0;i<(loop||1000);i++){
     var df=[]
     var ddf=[]
     var delta=0.00000001
@@ -88,7 +88,7 @@ function fastSolve(func, args){
     var ntmp=args.map(function(v,i){return v-dnewton[i]})
     var ncost = func(ntmp)
     if(ncost<cost){
-      console.log('newton', ncost)
+      // console.log('newton', ncost)
       cost=ncost
       args=ntmp
     }else{
@@ -106,18 +106,37 @@ function fastSolve(func, args){
         args=tmp
         d*=2
       }
-      if(!processed){console.error('failed');break}
-      console.error('grad', cost)
+      if(!processed)for(var j=0;j<20;j++){
+        d/=2;
+        var tmp = args.map(function(v,i){return v-d*df[i]/dlen})
+        var changed=false
+        for(var k=0;k<args.length;k++){
+          if(tmp[k]!=args[k])changed=true
+        }
+        if(!changed){break}
+        var gcost = func(tmp)
+        if(gcost>=cost)continue
+        processed=true
+        cost=gcost
+        args=tmp
+        break
+      }
+      if(!processed)break
+      // console.log('grad  ', cost)
     }
-    if(cost<1e-10){console.log('END:',cost);break;}
   }
+  console.log(i)
   return args
 }
 
-function calcCamera(points, forceOption){
-  return fastSolve(cost, [0,0,0,0,0,0,0,0].map(function(){
-    return 0.1*(2*Math.random()-1)
-  }))
+function calcCamera(points, option){
+  var initial = option.initial
+  if(!initial){
+    initial = [0,0,0,0,0,0,0,0].map(function(){
+      return 0.1*(2*Math.random()-1)
+    })
+  }
+  return fastSolve(cost, initial, option.loop)
   function cost(args){
     args = new ArgsSlicer(args)
     var projector = {L: 1+Math.pow(args.slice(),2), Y: args.slice()}
@@ -131,14 +150,14 @@ function calcCamera(points, forceOption){
       rotation: args.slice(['x','y','z'])
     }
     var costs = 0
-    if(forceOption.projL||forceOption.projL===0){
-      costs+=Math.pow(projector.L-forceOption.projL,2)
+    if(option.projL||option.projL===0){
+      costs+=Math.pow(projector.L-option.projL,2)
     }
-    if(forceOption.projY||forceOption.projY===0){
-      costs+=Math.pow(projector.L-forceOption.projY,2)
+    if(option.projY||option.projY===0){
+      costs+=Math.pow(projector.L-option.projY,2)
     }
-    if(forceOption.camL||forceOption.camL===0){
-      costs+=Math.pow(camera.L-forceOption.camL,2)
+    if(option.camL||option.camL===0){
+      costs+=Math.pow(camera.L-option.camL,2)
     }
     points.forEach(function(p){
       var pvec = {

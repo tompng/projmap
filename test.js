@@ -94,20 +94,6 @@ var answer = {
   points: points
 }
 
-var cst=cost(ans=[Math.sqrt(projector.L-1),projector.Y,Math.sqrt(camera.L-1),
-  camera.position.y,camera.position.z,
-  camera.rotation.x,camera.rotation.y,camera.rotation.z,
-])
-console.error(cst)
-
-//xx+5xx+10xy+5yy
-//6xx+10xy+5yy
-//x: 12x+10y
-//y: 10x+10y
-//xx: 12
-//yy: 10
-//xy: 10
-
 function fastSolve(func, args){
   for(var i=0;i<10000;i++){
     var df=[]
@@ -170,64 +156,68 @@ function fastSolve(func, args){
   }
   return args
 }
-
-out=fastSolve(cost, [0,0,0,0,0,0,0,0].map(function(){
-  return 0.1*(2*Math.random()-1)
-}))
-console.log(ans)
+var ans=[Math.sqrt(projector.L-1),projector.Y,Math.sqrt(camera.L-1),
+  camera.position.y,camera.position.z,
+  camera.rotation.x,camera.rotation.y,camera.rotation.z,
+]
+out = calcCamera(points, forceOption)
+console.log(ans.map(function(a){return parseFloat(a.toFixed(4))}))
+out[0]=Math.abs(out[0])
+out[2]=Math.abs(out[2])
 console.log(out.map(function(a){return parseFloat(a.toFixed(4))}))
-
-function cost(args){
-  args = new ArgsSlicer(args)
-  var projector = {L: 1+Math.pow(args.slice(),2), Y: args.slice()}
-  var camera = {
-    L: 1+Math.pow(args.slice(),2),
-    position: {
-      x: answer.camera.position.x,
-      y: args.slice(),
-      z: args.slice()
-    },
-    rotation: args.slice(['x','y','z'])
-  }
-  var costs = 0
-  if(forceOption.projL){
-    var projL=forceOption.projL==true?answer.projector.L:forceOption.projL
-    costs+=Math.pow(projector.L-projL,2)
-  }
-  if(forceOption.projY){
-    var projY=forceOption.projY==true?answer.projector.Y:forceOption.projY
-    costs+=Math.pow(projector.L-projY,2)
-  }
-  if(forceOption.camL){
-    var camL=forceOption.camL==true?answer.camera.L:forceOption.camL
-    costs+=Math.pow(camera.L-camL,2)
-  }
-  points.forEach(function(p){
-    var pvec = {
-      x: p.projector.x/projector.L,
-      y: (p.projector.y-projector.Y)/projector.L,
-      z: 1
+function calcCamera(points, forceOption){
+  return fastSolve(cost, [0,0,0,0,0,0,0,0].map(function(){
+    return 0.1*(2*Math.random()-1)
+  }))
+  function cost(args){
+    args = new ArgsSlicer(args)
+    var projector = {L: 1+Math.pow(args.slice(),2), Y: args.slice()}
+    var camera = {
+      L: 1+Math.pow(args.slice(),2),
+      position: {
+        x: answer.camera.position.x,
+        y: args.slice(),
+        z: args.slice()
+      },
+      rotation: args.slice(['x','y','z'])
     }
-    var cpos = camera.position
-    var cvec = reverseEulerRot({
-      x: p.camera.x/camera.L,
-      y: p.camera.y/camera.L,
-      z: 1
-    },camera.rotation)
-    var a=pvec,b=camera.position,c=cvec;
-    var aa=vecDot(a,a),bb=vecDot(b,b),cc=vecDot(c,c)
-    var ab=vecDot(a,b),bc=vecDot(b,c),ac=vecDot(a,c)
-    //min |a*s-(b+c*t)|
-    // var D=aa*cc-ac*ac
-    // var sD=ac*bc-cc*ab
-    // var tD=-ac*ab+aa*bc
-    // var minDiffD = ab*sD-bc*tD+bb*D
-    // costs += minDiffD
-    var cross = vecCross(b,c)
-    var dot= vecDot(cross, a)
-    costs += dot*dot
-  })
-  return costs;
+    var costs = 0
+    if(forceOption.projL||forceOption.projL===0){
+      costs+=Math.pow(projector.L-forceOption.projL,2)
+    }
+    if(forceOption.projY||forceOption.projY===0){
+      costs+=Math.pow(projector.L-forceOption.projY,2)
+    }
+    if(forceOption.camL||forceOption.camL===0){
+      costs+=Math.pow(camera.L-forceOption.camL,2)
+    }
+    points.forEach(function(p){
+      var pvec = {
+        x: p.projector.x/projector.L,
+        y: (p.projector.y-projector.Y)/projector.L,
+        z: 1
+      }
+      var cpos = camera.position
+      var cvec = reverseEulerRot({
+        x: p.camera.x/camera.L,
+        y: p.camera.y/camera.L,
+        z: 1
+      },camera.rotation)
+      var a=pvec,b=camera.position,c=cvec;
+      var aa=vecDot(a,a),bb=vecDot(b,b),cc=vecDot(c,c)
+      var ab=vecDot(a,b),bc=vecDot(b,c),ac=vecDot(a,c)
+      //min |a*s-(b+c*t)|
+      // var D=aa*cc-ac*ac
+      // var sD=ac*bc-cc*ab
+      // var tD=-ac*ab+aa*bc
+      // var minDiffD = ab*sD-bc*tD+bb*D
+      // costs += minDiffD
+      var cross = vecCross(b,c)
+      var dot= vecDot(cross, a)
+      costs += dot*dot
+    })
+    return costs;
+  }
 }
 
 function solveMatrix(matrix,val){

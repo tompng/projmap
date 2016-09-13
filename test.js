@@ -1,10 +1,10 @@
 var projector={L: 2.21, Y: 0.2}
-var camera={position: {x: 1, y: 0.5, z: 0.3}, rotation: {x: 0.1, y: -0.1, z: 0.2}, L: 2.44}
+var camera={position: {x: 1, y: 0.5, z: 0.3}, rotation: {x: 0.1, y: -0.1, z: 0.2}, L: 2.18}
 
 var forceOption={
   projL: false,
   projY: false,
-  camL: 2.44,
+  camL: 2.18,//MBP camera
 }
 
 function vecLinearAdd(a,va,b,vb){
@@ -145,7 +145,7 @@ function fastSolve(func, args){
     var ntmp=args.map(function(v,i){return v-dnewton[i]})
     var ncost = func(ntmp)
     if(ncost<cost){
-      console.log('newton', cost)
+      console.log('newton', ncost)
       cost=ncost
       args=ntmp
     }else{

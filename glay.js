@@ -156,10 +156,10 @@ function Calibrator(canvas,output){
     var map=this.mapping()
     for(var x=0;x<canvas.width;x++)for(var y=0;y<canvas.height;y++){
       if(!map[x][y])continue
-      var proj=map[x][y].projector
-      g.fillStyle='rgb('+Math.round(0xff*(1+proj.x)/2)+','+Math.round(0xff*(proj.y+1)/2)+','+0xff+')';
+      var p=map[x][y].projector
+      g.fillStyle='rgb('+Math.round(0xff*(1+p.x)/2)+','+Math.round(0xff*(p.y+1)/2)+','+0xff+')';
       g.fillRect(x,y,1,1)
-      var color=1-Math.pow(Math.max((Math.cos(proj.x*canvas.width/4)+1)/2,(Math.cos(proj.y*canvas.width/4)+1)/2),10)
+      var color=1-Math.pow(Math.max((Math.cos(p.x*canvas.width/4)+1)/2,(Math.cos(p.y*canvas.width/4)+1)/2),10)
       var cff=Math.round(0xff*color);
       g2.fillStyle='rgb('+cff+','+cff+','+cff+')';
       g2.fillRect(x,y,1,1)
@@ -188,9 +188,9 @@ function Calibrator(canvas,output){
     var map=this.mapping()
     for(var x=0;x<canvas.width;x++)for(var y=0;y<canvas.height;y++){
       if(!map[x][y])continue
-      var proj=map[x][y].projector
-      coord.x[x][y]=proj.x*canvas.width/2+canvas.width/2
-      coord.y[x][y]=proj.y*canvas.width/2+(canvas.width+canvas.height)/4
+      var p=map[x][y].projector
+      coord.x[x][y]=p.x*canvas.width/2+canvas.width/2
+      coord.y[x][y]=p.y*canvas.width/2+canvas.height/2
     }
     function triangle(px1,py1,px2,py2,px3,py3){
       var cx1=coord.x[px1][py1],cy1=coord.y[px1][py1];

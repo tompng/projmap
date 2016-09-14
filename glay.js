@@ -212,29 +212,42 @@ function Calibrator(canvas,output){
       mouse.y=e.clientY/window.innerHeight
     }
     var t=0;
+    var prevtime=new Date()
     setInterval(function(){
-      t+=0.1*mouse.y;
+      var time=new Date()
+      var dt=(time-prevtime)/1000
+      prevtime=time
+      t+=2*mouse.y*dt
       var dx=Math.cos(t),dy=Math.sin(t),dz=Math.sin(Math.E*t)
       var dr=Math.sqrt(dx*dx+dy*dy+dz*dz)
       dx/=dr;dy/=dr;dz/=dr
+      dx=0;dy=0;dz=1;
       for(var x=0;x<canvas.width;x++)for(var y=0;y<canvas.height;y++){
 
         if(!proj.w[x][y])continue;
         var px=proj.x[x][y];
         var py=proj.y[x][y];
         var p=map[Math.round(px)]&&map[Math.round(px)][Math.round(py)]
-
-        if(!p)continue
-        var dot=p.estimated.x*dx+p.estimated.y*dy+p.estimated.z*dz
-        var col=1/(1+Math.exp(10*Math.sin(10*mouse.x*dot)))
         var index=4*(y*canvas.width+x)
+        if(!p){
+          imgdata.data[index+0]=0
+          imgdata.data[index+1]=0
+          imgdata.data[index+2]=0
+          imgdata.data[index+3]=0xff
+          continue
+        }
+        var dot=p.estimated.x*dx+p.estimated.y*dy+p.estimated.z*dz
+        var zr=Math.sqrt(p.estimated.x*p.estimated.x+(p.estimated.y-0.5)*(p.estimated.y-0.5))
+        var col1=Math.exp(-10/mouse.x*(1+Math.sin(100*mouse.x*zr+10*mouse.x*t)))
+        var col=Math.exp(-10/mouse.x*(1+Math.sin(100*mouse.x*dot+10*mouse.x*t)))
+        var col2=Math.max(col,col1)
         imgdata.data[index+0]=col*0xff
         imgdata.data[index+1]=col*0xff
-        imgdata.data[index+2]=col*0xff
+        imgdata.data[index+2]=col2*0xff
         imgdata.data[index+3]=0xff
       }
       g.putImageData(imgdata,0,0)
-    }, 20)
+    }, 10)
 
 
   }
@@ -373,20 +386,18 @@ function calibrateStart(){
     render();
   }
   function done(){
-    calibrator.show();
-    calibrator.genInv();
+    window.inv = calibrator.genInv();
     setTimeout(function(){
       var canvas2=createCanvas(640,480);
       canvas2.context.drawImage(video,0,0);
       canvas2.style.width=canvas2.style.height='100%'
       document.body.appendChild(canvas2);
+      calibrator.show();
     },1000)
   }
   document.body.onclick=function(){
-    // setTimeout(render,interval);
+    setTimeout(render,interval);
     document.body.onclick=null;
-    window.inv = calibrator.genInv();
-    calibrator.show()
   }
 }
 var Vector={

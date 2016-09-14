@@ -128,7 +128,46 @@ function fastSolve(func, args, loop){
   console.log(i)
   return args
 }
-
+function calcDepth(points, data){
+  args = new ArgsSlicer(data)
+  var projector = {L: 1+Math.pow(args.slice(),2), Y: args.slice()}
+  var camera = {
+    L: 1+Math.pow(args.slice(),2),
+    position: {
+      x: 1,
+      y: args.slice(),
+      z: args.slice()
+    },
+    rotation: args.slice(['x','y','z'])
+  }
+  points.forEach(function(p){
+    var pvec = {
+      x: p.projector.x/projector.L,
+      y: (p.projector.y-projector.Y)/projector.L,
+      z: 1
+    }
+    var cpos = camera.position
+    var cvec = reverseEulerRot({
+      x: p.camera.x/camera.L,
+      y: p.camera.y/camera.L,
+      z: 1
+    },camera.rotation)
+    var a=pvec,b=camera.position,c=cvec;
+    var aa=vecDot(a,a),bb=vecDot(b,b),cc=vecDot(c,c)
+    var ab=vecDot(a,b),bc=vecDot(b,c),ac=vecDot(a,c)
+    // min |a*s-(b+c*t)|
+    var D=aa*cc-ac*ac
+    var s=(ab*cc-ac*bc)/D
+    var t=(ab*ac-aa*bc)/D
+    p.estimated = {
+      x: (a.x*s+b.x+c.x*t)/2,
+      y: (a.y*s+b.y+c.y*t)/2,
+      z: (a.z*s+b.z+c.z*t)/2,
+      projectorDepth: s*Math.sqrt(aa),
+      cameraDepth: t*Math.sqrt(cc)
+    }
+  })
+}
 function calcCamera(points, option){
   var initial = option.initial
   if(!initial){
@@ -174,12 +213,6 @@ function calcCamera(points, option){
       var a=pvec,b=camera.position,c=cvec;
       var aa=vecDot(a,a),bb=vecDot(b,b),cc=vecDot(c,c)
       var ab=vecDot(a,b),bc=vecDot(b,c),ac=vecDot(a,c)
-      //min |a*s-(b+c*t)|
-      // var D=aa*cc-ac*ac
-      // var sD=ac*bc-cc*ab
-      // var tD=-ac*ab+aa*bc
-      // var minDiffD = ab*sD-bc*tD+bb*D
-      // costs += minDiffD
       var cross = vecCross(b,c)
       var dot= vecDot(cross, a)
       costs += dot*dot
@@ -213,6 +246,7 @@ function solveMatrix(matrix,val){
 try{
   module.exports = {
     calcCamera: calcCamera,
+    calcDepth: calcDepth,
     vecLinearAdd: vecLinearAdd,
     eulerRot: eulerRot
   }

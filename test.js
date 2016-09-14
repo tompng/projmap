@@ -1,7 +1,8 @@
 var libProjection = require('./projection')
-calcCamera = libProjection.calcCamera;
-vecLinearAdd = libProjection.vecLinearAdd;
-eulerRot = libProjection.eulerRot;
+calcCamera = libProjection.calcCamera
+calcDepth = libProjection.calcDepth
+vecLinearAdd = libProjection.vecLinearAdd
+eulerRot = libProjection.eulerRot
 
 var projector={L: 2.21, Y: 0.2}
 var camera={position: {x: 1, y: 0.5, z: 0.3}, rotation: {x: 0.1, y: -0.1, z: 0.2}, L: 2.18}
@@ -40,12 +41,6 @@ var points = itemPoints.map(function(p){
   }
 })
 
-var answer = {
-  projector: projector,
-  camera: camera,
-  points: points
-}
-
 var ans=[Math.sqrt(projector.L-1),projector.Y,Math.sqrt(camera.L-1),
   camera.position.y,camera.position.z,
   camera.rotation.x,camera.rotation.y,camera.rotation.z,
@@ -60,6 +55,8 @@ console.log(ans.map(function(a){return parseFloat(a.toFixed(4))}))
 out = calcCamera(points, forceOption)
 out[0]=Math.abs(out[0]);out[2]=Math.abs(out[2]);
 console.log(out.map(function(a){return parseFloat(a.toFixed(4))}))
+
+calcDepth(points, out)
 
 
 require('fs').readFile('./data.json', function(err, json){
@@ -78,9 +75,25 @@ require('fs').readFile('./data.json', function(err, json){
     })
     return arr
   }
+
   out = calcCamera(sample(points, 32), merge(forceOption, {initial: out, loop: 500}))
   out = calcCamera(sample(points, 256), merge(forceOption, {initial: out, loop: 100}))
   out[0]=Math.abs(out[0]);out[2]=Math.abs(out[2])
+  calcDepth(points, out)
+
+  for(var y=0;y<map[0].length;y+=2){
+    var s='';
+    for(var x=0;x<map.length;x++){
+      var p=map[x][y]
+      if(!p)s+=' '
+      else{
+        s+=Math.sin(10*p.estimated.projectorDepth)>0?'#':'+'
+      }
+    }
+    console.log(s)
+  }
+
+
   console.log(out.map(function(a){return parseFloat(a.toFixed(4))}))
 });
 

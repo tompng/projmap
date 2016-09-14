@@ -65,7 +65,6 @@ require('fs').readFile('./data.json', function(err, json){
   for(var i=0;i<map.length;i++)for(var j=0;j<map[i].length;j++){
     if(map[i][j])points.push(map[i][j])
   }
-  var pnts=[];
   function sample(array, n){
     var arr=[]
     array.forEach(function(v, i){

@@ -167,7 +167,55 @@ function Calibrator(canvas,output){
     canvas2.style.width=canvas2.style.height='100%'
     document.body.appendChild(canvas);
     document.body.appendChild(canvas2);
-    var map=this.mapping();
+
+    var points = []
+    for(var i=0;i<map.length;i++)for(var j=0;j<map[i].length;j++){
+      if(map[i][j])points.push(map[i][j])
+    }
+    function sample(array, n){
+      var arr=[]
+      array.forEach(function(v, i){
+        var size=array.length-i
+        var num=n-arr.length
+        if(Math.random()<num/size)arr.push(v)
+      })
+      return arr
+    }
+
+    out = calcCamera(sample(points, 32), merge(forceOption, {initial: out, loop: 500}))
+    out = calcCamera(sample(points, 256), merge(forceOption, {initial: out, loop: 100}))
+    out[0]=Math.abs(out[0]);out[2]=Math.abs(out[2])
+    calcDepth(points, out)
+    var canvas3=createCanvas(canvas.width,canvas.height);
+    canvas3.style.width=canvas3.style.height='100%'
+    var g=canvas3.getContext('2d')
+    var imgdata = g.createImageData(canvas.width, canvas.height)
+    var mouse={x:0,y:0}
+    document.onmousemove=function(e){
+      mouse.x=e.clientX/window.innerWidth
+      mouse.y=e.clientY/window.innerHeight
+    }
+    var t=0;
+    setInterval(function(){
+      t+=0.2*mouse.y;
+      var dx=Math.cos(t),dy=Math.sin(t),dz=Math.sin(Math.E*t)
+      var dr=Math.sqrt(dx*dx+dy*dy+dz*dz)
+      dx/=dr;dy/=dr;dz/=dr
+      for(var x=0;x<canvas.width;x++)for(var y=0;y<canvas.height;y++){
+        var p=map[x][y]
+        if(!p)continue
+        var dot=p.estimated.x*dx+p.estimated.y*dy+p.estimated.z*dz
+        var col=1/(1+Math.exp(10*Math.sin(dot)))
+        var index=4*(y*canvas.width+x)
+        imgdata.data[index+0]=col*0xff
+        imgdata.data[index+1]=col*0xff
+        imgdata.data[index+2]=col*0xff
+        imgdata.data[index+3]=0xff
+      }
+      g.putImageData(imgdata,0,0)
+    }, 100)
+
+
   }
 
   this.genInv=function(){

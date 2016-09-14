@@ -1,3 +1,16 @@
+function merge(a,b){
+  var out={}
+  for(var i in a)out[i]=a[i]
+  for(var i in b)out[i]=b[i]
+  return out
+}
+var forceOption={
+  projL: false,
+  projY: false,
+  camL: 2.18,//MBP camera
+}
+
+
 function invcode_precalc(max){
   invcode.map=[];
   for(var i=0;i<=max;i++){
@@ -129,6 +142,7 @@ function Calibrator(canvas,output){
     output.context.putImageData(cdata,0,0);
   }
   this.mapping=function(){
+    if(window.MAPPING)return window.MAPPING
     var map=arr2D(canvas.width,canvas.height,null);
     for(var x=0;x<canvas.width;x++)for(var y=0;y<canvas.height;y++){
       var x1=invcode(xcode1[x][y]),x2=invcode(((1<<wlevel)-1)^xcode2[x][y])
@@ -154,6 +168,7 @@ function Calibrator(canvas,output){
     var canvas2=createCanvas(canvas.width,canvas.height);
     var g2=canvas2.context;g2.drawImage(canvas,0,1)
     var map=this.mapping()
+
     for(var x=0;x<canvas.width;x++)for(var y=0;y<canvas.height;y++){
       if(!map[x][y])continue
       var p=map[x][y].projector
@@ -182,12 +197,13 @@ function Calibrator(canvas,output){
       return arr
     }
 
-    out = calcCamera(sample(points, 32), merge(forceOption, {initial: out, loop: 500}))
+    out = calcCamera(sample(points, 32), merge(forceOption, {loop: 500}))
     out = calcCamera(sample(points, 256), merge(forceOption, {initial: out, loop: 100}))
     out[0]=Math.abs(out[0]);out[2]=Math.abs(out[2])
     calcDepth(points, out)
     var canvas3=createCanvas(canvas.width,canvas.height);
     canvas3.style.width=canvas3.style.height='100%'
+    document.body.appendChild(canvas3)
     var g=canvas3.getContext('2d')
     var imgdata = g.createImageData(canvas.width, canvas.height)
     var mouse={x:0,y:0}
@@ -197,15 +213,20 @@ function Calibrator(canvas,output){
     }
     var t=0;
     setInterval(function(){
-      t+=0.2*mouse.y;
+      t+=0.1*mouse.y;
       var dx=Math.cos(t),dy=Math.sin(t),dz=Math.sin(Math.E*t)
       var dr=Math.sqrt(dx*dx+dy*dy+dz*dz)
       dx/=dr;dy/=dr;dz/=dr
       for(var x=0;x<canvas.width;x++)for(var y=0;y<canvas.height;y++){
-        var p=map[x][y]
+
+        if(!proj.w[x][y])continue;
+        var px=proj.x[x][y];
+        var py=proj.y[x][y];
+        var p=map[Math.round(px)]&&map[Math.round(px)][Math.round(py)]
+
         if(!p)continue
         var dot=p.estimated.x*dx+p.estimated.y*dy+p.estimated.z*dz
-        var col=1/(1+Math.exp(10*Math.sin(dot)))
+        var col=1/(1+Math.exp(10*Math.sin(10*mouse.x*dot)))
         var index=4*(y*canvas.width+x)
         imgdata.data[index+0]=col*0xff
         imgdata.data[index+1]=col*0xff
@@ -213,7 +234,7 @@ function Calibrator(canvas,output){
         imgdata.data[index+3]=0xff
       }
       g.putImageData(imgdata,0,0)
-    }, 100)
+    }, 20)
 
 
   }
@@ -298,6 +319,7 @@ function Calibrator(canvas,output){
       og.fillStyle='rgb('+cff+','+cff+','+cff+')';
       og.fillRect(x,y,1,1);
     }
+    return {proj: proj, coord: coord}
   }
 }
 
@@ -361,8 +383,10 @@ function calibrateStart(){
     },1000)
   }
   document.body.onclick=function(){
-    setTimeout(render,interval);
+    // setTimeout(render,interval);
     document.body.onclick=null;
+    window.inv = calibrator.genInv();
+    calibrator.show()
   }
 }
 var Vector={

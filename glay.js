@@ -215,6 +215,20 @@ function Calibrator(canvas,output){
       inv.proj.z[i][j]=(16*f+4*a+b)/36
     }
 
+    var errors=[]
+    for(var i=0;i<map.length;i++)for(var j=0;j<map[i].lenght;j++){
+      if(map[i][j]&&map[i][j]){
+        errors.push(map[i][j].estimated.error)
+      }
+    }
+    errors.sort(function(a,b){var d=a-b;return d>0?1:d<0?-1:0})
+    var errthreshold=errors[Math.floor(errors.length*0.8)]
+    for(var i=0;i<map.length;i++)for(var j=0;j<map[i].lenght;j++){
+      if(map[i][j]&&map[i][j].estimated.error>errthreshold){
+        map[i][j]=null
+      }
+    }
+
     map2=invFill(map,100)
 
 
@@ -367,6 +381,7 @@ function calibrateStart(){
   document.body.appendChild(output)
   document.body.appendChild(canvas);
   document.body.appendChild(video);
+  calibrator.render.apply(calibrator,calibrator.queue[0]);
   function render(){
     if(!calibrator.queue[0]){
       done();

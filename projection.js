@@ -159,10 +159,12 @@ function calcDepth(points, data){
     var D=aa*cc-ac*ac
     var s=(ab*cc-ac*bc)/D
     var t=(ab*ac-aa*bc)/D
+    var ests = {x: a.x*s, y: a.y*s, z: a.z*s}
+    var estt = {x: b.x+c.x*t, y: b.y+c.y*t, z: b.z+c.z*t}
+    var errvec = vecLinearAdd(1, ests, -1, estt)
     p.estimated = {
-      x: (a.x*s+b.x+c.x*t)/2,
-      y: (a.y*s+b.y+c.y*t)/2,
-      z: (a.z*s+b.z+c.z*t)/2,
+      position: vecLinearAdd(0.5, ests, 0.5, estt),
+      error: Math.sqrt(vecDot(errvec, errvec)),
       projectorDepth: s*Math.sqrt(aa),
       cameraDepth: t*Math.sqrt(cc)
     }

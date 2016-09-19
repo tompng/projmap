@@ -243,9 +243,56 @@ function solveMatrix(matrix,val){
   return out;
 }
 
+
+function invFill(map, loop){
+  var W=map.length
+  var H=map[0].length
+  var arr=[]
+  var mask=[]
+  for(var x=0;x<W;x++){
+    arr[x]=[];mask[x]=[]
+    for(var y=0;y<H;y++)arr[x][y]=mask[x][y]=0
+  }
+  map.forEach(function(line){line.forEach(function(p){
+    if(!p)return
+    var x=Math.round(W*p.projector.x/2+W/2)
+    var y=Math.round(W*p.projector.y/2+H/2)
+    if(!arr[x]||arr[x][y]===undefined)return
+    mask[x][y]=arr[x][y]=p.estimated.projectorDepth
+  })})
+  for(var i=0;i<loop;i++){
+    for(var x=0;x<W;x++)for(var y=0;y<H;y++){
+      var coef1=0, coef2=0
+      if(x==0||y==0||x==W-1||y==H-1){
+        if(x==0){
+          arr[x][y]=arr[x+1][y]
+        }else if(x==W-1){
+          arr[x][y]=arr[x-1][y]
+        }else if(y==0){
+          arr[x][y]=arr[x][y+1]
+        }else if(y==H-1){
+          arr[x][y]=arr[x][y-1]
+        }
+        continue
+      }
+      coef2=16
+      coef1=-8*(arr[x-1][y]+arr[x+1][y]+arr[x][y-1]+arr[x][y+1])
+      if(mask[x][y]){
+        var k=i<loop/2?100:10
+        coef2+=k
+        coef1+=-2*k*mask[x][y]
+      }
+      arr[x][y]=-coef1/coef2/2
+    }
+  }
+  return arr
+}
+
+
 try{
   module.exports = {
     calcCamera: calcCamera,
+    invFill: invFill,
     calcDepth: calcDepth,
     vecLinearAdd: vecLinearAdd,
     eulerRot: eulerRot

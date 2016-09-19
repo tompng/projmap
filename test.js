@@ -75,23 +75,42 @@ require('fs').readFile('./data.json', function(err, json){
     return arr
   }
 
-  out = calcCamera(sample(points, 32), merge(forceOption, {initial: out, loop: 500}))
+  out = calcCamera(sample(points, 32), merge(forceOption, {loop: 500}))
   out = calcCamera(sample(points, 256), merge(forceOption, {initial: out, loop: 100}))
   out[0]=Math.abs(out[0]);out[2]=Math.abs(out[2])
   calcDepth(points, out)
 
+
+  out2=libProjection.invFill(map,100)
   for(var y=0;y<map[0].length;y+=2){
     var s='';
-    for(var x=0;x<map.length;x++){
+    function mediun(x,y){
+      var l=[]
       var p=map[x][y]
-      if(!p)s+=' '
-      else{
-        s+=Math.sin(10*p.estimated.projectorDepth)>0?'#':'+'
-      }
+      if(!p)return 0
+      var arr=[p.estimated.projectorDepth,
+      ((map[x-1]||l)[y-1]||p).estimated.projectorDepth,
+      ((map[x+1]||l)[y-1]||p).estimated.projectorDepth,
+      ((map[x-1]||l)[y+1]||p).estimated.projectorDepth,
+      ((map[x+1]||l)[y+1]||p).estimated.projectorDepth,
+      ((map[x-1]||l)[y]||p).estimated.projectorDepth,
+      ((map[x+1]||l)[y]||p).estimated.projectorDepth,
+      ((map[x]||l)[y-1]||p).estimated.projectorDepth,
+      ((map[x]||l)[y+1]||p).estimated.projectorDepth]
+      return arr.sort(function(a,b){a=a-b;return a>0?1:a<0?-1:0})[4]
+    }
+    for(var x=0;x<map.length;x++){
+      var pu=map[x][y],pd=map[x][y+1]
+      var u=pu&&Math.sin(10*pu.estimated.projectorDepth)>0?1:0
+      var d=pd&&Math.sin(10*pd.estimated.projectorDepth)>0?1:0
+      u=Math.sin(20*mediun(x,y))>0?1:0
+      d=Math.sin(20*mediun(x,y+1))>0?1:0
+      u=Math.sin(80*out2[x][y])>0?1:0
+      d=Math.sin(80*out2[x][y+1])>0?1:0
+      s+=' v^8'[2*u+d]
     }
     console.log(s)
   }
-
 
   console.log(out.map(function(a){return parseFloat(a.toFixed(4))}))
 });

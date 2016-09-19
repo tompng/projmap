@@ -1,3 +1,13 @@
+function sample(array, n){
+  var arr=[]
+  array.forEach(function(v, i){
+    var size=array.length-i
+    var num=n-arr.length
+    if(Math.random()<num/size)arr.push(v)
+  })
+  return arr
+}
+
 function merge(a,b){
   var out={}
   for(var i in a)out[i]=a[i]
@@ -162,12 +172,11 @@ function Calibrator(canvas,output){
     }
     return map;
   }
-  this.show=function(){
+  this.show=function(map){
     var g=canvas.context;
     g.clearRect(0,0,canvas.width,canvas.height)
     var canvas2=createCanvas(canvas.width,canvas.height);
     var g2=canvas2.context;g2.drawImage(canvas,0,1)
-    var map=this.mapping()
 
     for(var x=0;x<canvas.width;x++)for(var y=0;y<canvas.height;y++){
       if(!map[x][y])continue
@@ -183,29 +192,12 @@ function Calibrator(canvas,output){
     document.body.appendChild(canvas);
     document.body.appendChild(canvas2);
 
-    var points = []
-    for(var i=0;i<map.length;i++)for(var j=0;j<map[i].length;j++){
-      if(map[i][j])points.push(map[i][j])
-    }
-    function sample(array, n){
-      var arr=[]
-      array.forEach(function(v, i){
-        var size=array.length-i
-        var num=n-arr.length
-        if(Math.random()<num/size)arr.push(v)
-      })
-      return arr
-    }
 
-    out = calcCamera(sample(points, 32), merge(forceOption, {loop: 500}))
-    out = calcCamera(sample(points, 256), merge(forceOption, {initial: out, loop: 100}))
-    out[0]=Math.abs(out[0]);out[2]=Math.abs(out[2])
-    calcDepth(points, out)
     var canvas3=createCanvas(canvas.width,canvas.height);
     canvas3.style.width=canvas3.style.height='100%'
     document.body.appendChild(canvas3)
     var g=canvas3.getContext('2d')
-    var imgdata = g.createImageData(canvas.width, canvas.height)
+    var imgdata = g.createImageData(canvas3.width, canvas3.height)
     var mouse={x:0,y:0}
     document.onmousemove=function(e){
       mouse.x=e.clientX/window.innerWidth
@@ -213,6 +205,19 @@ function Calibrator(canvas,output){
     }
     var t=0;
     var prevtime=new Date()
+    var mode=0;
+    document.onclick=function(){mode++;}
+
+    for(var n=0;n<4;n++)for(var i=1;i<map.length-1;i++)for(var j=1;j<map[i].length-1;j++){
+      var f=inv.proj.z[i][j]
+      var a=inv.proj.z[i-1][j]+inv.proj.z[i+1][j]+inv.proj.z[i][j-1]+inv.proj.z[i][j+1]
+      var b=inv.proj.z[i-1][j-1]+inv.proj.z[i-1][j+1]+inv.proj.z[i+1][j-1]+inv.proj.z[i+1][j+1]
+      inv.proj.z[i][j]=(16*f+4*a+b)/36
+    }
+
+    map2=invFill(map,100)
+
+
     setInterval(function(){
       var time=new Date()
       var dt=(time-prevtime)/1000
@@ -222,28 +227,13 @@ function Calibrator(canvas,output){
       var dr=Math.sqrt(dx*dx+dy*dy+dz*dz)
       dx/=dr;dy/=dr;dz/=dr
       dx=0;dy=0;dz=1;
-      for(var x=0;x<canvas.width;x++)for(var y=0;y<canvas.height;y++){
-
-        if(!proj.w[x][y])continue;
-        var px=proj.x[x][y];
-        var py=proj.y[x][y];
-        var p=map[Math.round(px)]&&map[Math.round(px)][Math.round(py)]
-        var index=4*(y*canvas.width+x)
-        if(!p){
-          imgdata.data[index+0]=0
-          imgdata.data[index+1]=0
-          imgdata.data[index+2]=0
-          imgdata.data[index+3]=0xff
-          continue
-        }
-        var dot=p.estimated.x*dx+p.estimated.y*dy+p.estimated.z*dz
-        var zr=Math.sqrt(p.estimated.x*p.estimated.x+(p.estimated.y-0.5)*(p.estimated.y-0.5))
-        var col1=Math.exp(-10/mouse.x*(1+Math.sin(100*mouse.x*zr+10*mouse.x*t)))
-        var col=Math.exp(-10/mouse.x*(1+Math.sin(100*mouse.x*dot+10*mouse.x*t)))
-        var col2=Math.max(col,col1)
+      for(var x=0;x<canvas3.width;x++)for(var y=0;y<canvas3.height;y++){
+        var index=4*(y*canvas3.width+x)
+        var zr=map2[x][y];
+        var col=Math.exp(-10/mouse.x*(1+Math.sin(100*mouse.x*zr+10*mouse.x*t)))
         imgdata.data[index+0]=col*0xff
         imgdata.data[index+1]=col*0xff
-        imgdata.data[index+2]=col2*0xff
+        imgdata.data[index+2]=col*0xff
         imgdata.data[index+3]=0xff
       }
       g.putImageData(imgdata,0,0)
@@ -252,7 +242,7 @@ function Calibrator(canvas,output){
 
   }
 
-  this.genInv=function(){
+  this.genInv=function(map){
     var coord={
       x:arr2D(canvas.width,canvas.height,NaN),
       y:arr2D(canvas.width,canvas.height,NaN)
@@ -260,14 +250,15 @@ function Calibrator(canvas,output){
     var proj={
       w:arr2D(output.width,output.height,0),
       x:arr2D(output.width,output.height,0),
-      y:arr2D(output.width,output.height,0)
+      y:arr2D(output.width,output.height,0),
+      z:arr2D(output.width,output.height,0)
     }
     var tmp={
       x:arr2D(output.width,output.height,0),
       y:arr2D(output.width,output.height,0)
     }
     window.proj = proj;
-    var map=this.mapping()
+    if(!map)map=this.mapping()
     for(var x=0;x<canvas.width;x++)for(var y=0;y<canvas.height;y++){
       if(!map[x][y])continue
       var p=map[x][y].projector
@@ -278,6 +269,9 @@ function Calibrator(canvas,output){
       var cx1=coord.x[px1][py1],cy1=coord.y[px1][py1];
       var cx2=coord.x[px2][py2],cy2=coord.y[px2][py2];
       var cx3=coord.x[px3][py3],cy3=coord.y[px3][py3];
+      var dep1=(map[px1][py1].estimated||{}).projectorDepth||0;
+      var dep2=(map[px2][py2].estimated||{}).projectorDepth||0;
+      var dep3=(map[px3][py3].estimated||{}).projectorDepth||0;
       var minx=Math.min(cx1,cx2,cx3);if(minx<0)minx=0
       var miny=Math.min(cy1,cy2,cy3);if(miny<0)miny=0;
       var maxx=Math.max(cx1,cx2,cx3);if(maxx>=output.width)maxx=output.width;
@@ -293,6 +287,7 @@ function Calibrator(canvas,output){
           proj.w[x][y]=1;
           proj.x[x][y]=px1+(px2-px1)*s+(px3-px1)*t;
           proj.y[x][y]=py1+(py2-py1)*s+(py3-py1)*t;
+          proj.z[x][y]=dep1+(dep2-dep1)*s+(dep3-dep1)*t;
         }
       }
     }
@@ -385,18 +380,29 @@ function calibrateStart(){
     calibrator.queue.shift();
     render();
   }
+  var self = this
   function done(){
-    window.inv = calibrator.genInv();
+    var map=calibrator.mapping()
+    var points = []
+    for(var i=0;i<map.length;i++)for(var j=0;j<map[i].length;j++){
+      if(map[i][j])points.push(map[i][j])
+    }
+    out = calcCamera(sample(points, 32), merge(forceOption, {loop: 500}))
+    out = calcCamera(sample(points, 256), merge(forceOption, {initial: out, loop: 100}))
+    out[0]=Math.abs(out[0]);out[2]=Math.abs(out[2])
+    calcDepth(points, out)
+
+    window.inv = calibrator.genInv(map);
     setTimeout(function(){
       var canvas2=createCanvas(640,480);
       canvas2.context.drawImage(video,0,0);
       canvas2.style.width=canvas2.style.height='100%'
       document.body.appendChild(canvas2);
-      calibrator.show();
+      calibrator.show(map);
     },1000)
   }
   document.body.onclick=function(){
-    setTimeout(render,interval);
+    setTimeout(render,1000);
     document.body.onclick=null;
   }
 }
